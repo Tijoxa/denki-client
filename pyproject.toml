@@ -1,0 +1,29 @@
+[project]
+name = "entsoe-cli"
+dynamic = ["version"]
+description = "Agnostic client for Entsoe API."
+readme = "README.md"
+authors = []
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "httpx>=0.28.1",
+    "narwhals>=1.39.0",
+    "python-dateutil>=2.9.0.post0",
+    "tenacity>=9.1.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/entsoe_cli/__init__.py"
+
+[dependency-groups]
+dev = [
+    "entsoe-py>=0.6.18",
+    "ipykernel>=6.29.5",
+    "polars[all]>=1.29.0",
+    "pytest>=8.3.5",
+]
