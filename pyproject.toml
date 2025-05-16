@@ -27,3 +27,6 @@ dev = [
     "polars[all]>=1.29.0",
     "pytest>=8.3.5",
 ]
+
+[tool.ruff]
+line-length = 120

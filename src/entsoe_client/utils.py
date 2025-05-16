@@ -17,15 +17,20 @@ def paginated(func):
     again. Finally it concatenates the results."""
 
     @wraps(func)
-    def pagination_wrapper(*args, start, end, **kwargs):
+    async def pagination_wrapper(*args, start, end, **kwargs):
         try:
-            df = func(*args, start=start, end=end, **kwargs)
+            frame: nw.DataFrame | None = await func(*args, start=start, end=end, **kwargs)
+
         except PaginationError:
             pivot = start + (end - start) / 2
-            df1 = pagination_wrapper(*args, start=start, end=pivot, **kwargs)
-            df2 = pagination_wrapper(*args, start=pivot, end=end, **kwargs)
-            df = nw.concat([df1, df2], how="vertical")
-        return df
+            frame1: nw.DataFrame | None = await pagination_wrapper(*args, start=start, end=pivot, **kwargs)
+            frame2: nw.DataFrame | None = await pagination_wrapper(*args, start=pivot, end=end, **kwargs)
+
+            if frame1 is None and frame2 is None:
+                frame = None
+            else:
+                frame = nw.concat([frame1, frame2], how="diagonal")
+        return frame
 
     return pagination_wrapper
 
@@ -36,12 +41,14 @@ def documents_limited(n: int = 100):
 
     def decorator(func):
         @wraps(func)
-        def documents_wrapper(*args, **kwargs):
+        async def documents_wrapper(*args, **kwargs):
             frames = []
             for offset in range(0, 4800 + n, n):
                 try:
-                    frame = func(*args, offset=offset, **kwargs)
-                    frames.append(frame)
+                    frame: nw.DataFrame | None = await func(*args, offset=offset, **kwargs)
+                    if frame is not None:
+                        frames.append(frame)
+
                 except NoMatchingDataError:
                     logger.debug(f"NoMatchingDataError: for offset {offset}")
                     break
@@ -49,7 +56,7 @@ def documents_limited(n: int = 100):
             if frames == []:
                 logger.debug("All the data returned are void")
 
-            df = nw.concat(frames, how="vertical")
+            df = nw.concat(frames, how="diagonal")
             return df
 
         return documents_wrapper

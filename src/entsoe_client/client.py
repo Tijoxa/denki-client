@@ -5,12 +5,20 @@ from datetime import datetime
 import httpx
 import narwhals as nw
 from bs4 import XMLParsedAsHTMLWarning
-from tenacity import retry, stop_after_attempt, wait_fixed
+from tenacity import retry, retry_unless_exception_type, stop_after_attempt, wait_fixed
 
 from entsoe_client.area import Area, lookup_area
+from entsoe_client.exceptions import (
+    InvalidBusinessParameterError,
+    InvalidParameterError,
+    InvalidPSRTypeError,
+    NoMatchingDataError,
+    PaginationError,
+    raise_response_error,
+)
 from entsoe_client.parsers import parse_datetime, parse_timeseries_generic_whole
 from entsoe_client.schemas import DAY_AHEAD_SCHEMA
-from entsoe_client.utils import split_query
+from entsoe_client.utils import documents_limited, split_query
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
@@ -29,7 +37,19 @@ class Client:
         self.logger = logging.getLogger(__name__)
         self.backend = backend
 
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    @retry(
+        retry=retry_unless_exception_type(
+            (
+                PaginationError,
+                NoMatchingDataError,
+                InvalidPSRTypeError,
+                InvalidBusinessParameterError,
+                InvalidParameterError,
+            )
+        ),
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(2),
+    )
     async def _base_request(self, params: dict, start_str: str, end_str: str) -> httpx.Response:
         """Base Request.
 
@@ -46,11 +66,13 @@ class Client:
         params.update(base_params)
         self.logger.debug(f"Request with {params=}")
         response = await self.session.get(self.base_url, params=params)
+        raise_response_error(response)
         return response
 
     @split_query("1y")
+    @documents_limited(100)
     async def query_day_ahead_prices(
-        self, country_code: Area | str, *, start: datetime | str, end: datetime | str
+        self, country_code: Area | str, *, start: datetime | str, end: datetime | str, offset: int = 0
     ) -> nw.DataFrame | None:
         """Query day-ahead prices.
 
@@ -63,7 +85,7 @@ class Client:
             "documentType": "A44",
             "in_Domain": domain.code,
             "out_Domain": domain.code,
-            "offset": 0,
+            "offset": offset,
         }
         start_str = parse_datetime(start, domain.tz)
         end_str = parse_datetime(end, domain.tz)
