@@ -1,6 +1,7 @@
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from functools import wraps
+from typing import Literal
 
 import narwhals as nw
 from dateutil.relativedelta import relativedelta
@@ -17,31 +18,40 @@ def paginated(func):
     again. Finally it concatenates the results."""
 
     @wraps(func)
-    def pagination_wrapper(*args, start, end, **kwargs):
+    async def pagination_wrapper(*args, start: datetime, end: datetime, **kwargs):
         try:
-            df = func(*args, start=start, end=end, **kwargs)
+            frame: nw.DataFrame | None = await func(*args, start=start, end=end, **kwargs)
+
         except PaginationError:
             pivot = start + (end - start) / 2
-            df1 = pagination_wrapper(*args, start=start, end=pivot, **kwargs)
-            df2 = pagination_wrapper(*args, start=pivot, end=end, **kwargs)
-            df = nw.concat([df1, df2], how="vertical")
-        return df
+            frame1: nw.DataFrame | None = await pagination_wrapper(*args, start=start, end=pivot, **kwargs)
+            frame2: nw.DataFrame | None = await pagination_wrapper(*args, start=pivot, end=end, **kwargs)
+
+            if frame1 is None and frame2 is None:
+                frame = None
+            else:
+                frame = nw.concat([frame1, frame2], how="diagonal")
+        return frame
 
     return pagination_wrapper
 
 
 def documents_limited(n: int = 100):
     """Deals with calls where you cannot query more than n documents at a
-    time, by offsetting per n documents."""
+    time, by offsetting per `n` documents.
+
+    :param int n: maximum number of documents to query, defaults to 100"""
 
     def decorator(func):
         @wraps(func)
-        def documents_wrapper(*args, **kwargs):
+        async def documents_wrapper(*args, _offset: int, **kwargs):
             frames = []
             for offset in range(0, 4800 + n, n):
                 try:
-                    frame = func(*args, offset=offset, **kwargs)
-                    frames.append(frame)
+                    frame: nw.DataFrame | None = await func(*args, offset=offset, **kwargs)
+                    if frame is not None:
+                        frames.append(frame)
+
                 except NoMatchingDataError:
                     logger.debug(f"NoMatchingDataError: for offset {offset}")
                     break
@@ -49,7 +59,7 @@ def documents_limited(n: int = 100):
             if frames == []:
                 logger.debug("All the data returned are void")
 
-            df = nw.concat(frames, how="vertical")
+            df = nw.concat(frames, how="diagonal")
             return df
 
         return documents_wrapper
@@ -57,44 +67,35 @@ def documents_limited(n: int = 100):
     return decorator
 
 
-def yield_date_range(start: datetime | str, end: datetime | str, freq: relativedelta | str):
+def yield_date_range(start: datetime, end: datetime, freq: relativedelta):
     """Create a date_range iterator from `start` to `end` at given frequency.
 
-    :param datetime | str start: if str, must be isoformat.
-    :param datetime | str end: if str, must be isoformat.
-    :param relativedelta | str freq:
-    :yield str: _start, isoformat
-    :yield str: _end, isoformat
+    :param datetime start:
+    :param datetime end:
+    :param relativedelta freq:
+    :yield datetime: _start
+    :yield datetime: _end
     """
-    if isinstance(start, str):
-        start = datetime.fromisoformat(start)
-        if start.tzinfo is None:
-            start = start.replace(tzinfo=UTC)
-    if isinstance(end, str):
-        end = datetime.fromisoformat(end)
-        if end.tzinfo is None:
-            end = end.replace(tzinfo=UTC)
-    if isinstance(freq, str):
-        freq = parse_freq(freq)
 
-    current = start
-    if current > end:
-        yield start.isoformat(), end.isoformat()
-        return
-
-    while current < end:
-        next_one = min(current + freq, end)
-        yield current.isoformat(), next_one.isoformat()
-        current = next_one
+    _t0 = start
+    while _t0 < end:
+        _t1 = min(_t0 + freq, end)
+        yield _t0, _t1
+        _t0 = _t1
 
 
 def split_query(freq: relativedelta | str):
     """Deals with calls where you cannot query more than a given frequency,
-    by splitting the call up in blocks."""
+    by splitting the call up in blocks.
+
+    :param relativedelta | str freq: split frequency compatible with `parse_freq`
+    """
+    freq = parse_freq(freq)
+    freq: relativedelta
 
     def decorator(func):
         @wraps(func)
-        async def wrapper(*args, start: datetime | str, end: datetime | str, **kwargs):
+        async def wrapper(*args, start: datetime, end: datetime, **kwargs):
             blocks = yield_date_range(start, end, freq)
             frames = []
             for _start, _end in blocks:
@@ -111,6 +112,38 @@ def split_query(freq: relativedelta | str):
 
             df = nw.concat(frames, how="diagonal")
             return df
+
+        return wrapper
+
+    return decorator
+
+
+def inclusive(granularity: relativedelta | str, closed: Literal["both", "left", "right", "neither"] = "left"):
+    """Truncate `start` and `end` arguments for calls.
+
+    :param relativedelta | str granularity:
+    :param Literal["both", "left", "right", "neither"] closed: where the interval is closed, defaults to "left"
+    """
+    granularity = parse_freq(granularity)
+    granularity: relativedelta
+
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, start: datetime, end: datetime, **kwargs):
+            match closed:
+                case "both":
+                    _start = start
+                    _end = end
+                case "left":
+                    _start = start
+                    _end = end - granularity
+                case "right":
+                    _start = start + granularity
+                    _end = end
+                case "neither":
+                    _start = start + granularity
+                    _end = end - granularity
+            return await func(*args, start=_start, end=_end, **kwargs)
 
         return wrapper
 

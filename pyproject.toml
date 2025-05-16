@@ -1,7 +1,7 @@
 [project]
 name = "entsoe-client"
 dynamic = ["version"]
-description = "Agnostic client for Entsoe API."
+description = "Agnostic client for ENTSO-e API."
 readme = "README.md"
 authors = []
 requires-python = ">=3.12"
@@ -27,3 +27,6 @@ dev = [
     "polars[all]>=1.29.0",
     "pytest>=8.3.5",
 ]
+
+[tool.ruff]
+line-length = 120
