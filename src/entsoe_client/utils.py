@@ -84,15 +84,11 @@ def yield_date_range(start: datetime | str, end: datetime | str, freq: relatived
     if isinstance(freq, str):
         freq = parse_freq(freq)
 
-    current = start
-    if current > end:
-        yield start.isoformat(), end.isoformat()
-        return
-
-    while current < end:
-        next_one = min(current + freq, end)
-        yield current.isoformat(), next_one.isoformat()
-        current = next_one
+    _t0 = start
+    while _t0 < end:
+        _t1 = min(_t0 + freq, end)
+        yield _t0.isoformat(), _t1.isoformat()
+        _t0 = _t1
 
 
 def split_query(freq: relativedelta | str):
