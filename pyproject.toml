@@ -1,5 +1,5 @@
 [project]
-name = "entsoe-cli"
+name = "entsoe-client"
 dynamic = ["version"]
 description = "Agnostic client for Entsoe API."
 readme = "README.md"
@@ -18,7 +18,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "src/entsoe_cli/__init__.py"
+path = "src/entsoe_client/__init__.py"
 
 [dependency-groups]
 dev = [

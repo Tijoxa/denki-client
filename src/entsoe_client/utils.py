@@ -5,7 +5,7 @@ from functools import wraps
 import narwhals as nw
 from dateutil.relativedelta import relativedelta
 
-from entsoe_cli.parsers import parse_freq
+from entsoe_client.parsers import parse_freq
 
 from .exceptions import NoMatchingDataError, PaginationError
 

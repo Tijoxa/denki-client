@@ -7,9 +7,9 @@ import narwhals as nw
 from bs4 import XMLParsedAsHTMLWarning
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from entsoe_cli.area import Area, lookup_area
-from entsoe_cli.parsers import parse_datetime, parse_timeseries_generic_whole
-from entsoe_cli.utils import split_query
+from entsoe_client.area import Area, lookup_area
+from entsoe_client.parsers import parse_datetime, parse_timeseries_generic_whole
+from entsoe_client.utils import split_query
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
