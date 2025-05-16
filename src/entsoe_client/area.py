@@ -53,6 +53,7 @@ class Area(enum.Enum):
         return code in cls.__members__
 
     # List taken directly from the API Docs
+    # fmt: off
     DE_50HZ =        "10YDE-VE-------2", "50Hertz CA, DE(50HzT) BZA",                                  "Europe/Berlin",
     AL =             "10YAL-KESH-----5", "Albania, OST BZ / CA / MBA",                                 "Europe/Tirane",
     DE_AMPRION =     "10YDE-RWENET---I", "Amprion CA",                                                 "Europe/Berlin",
@@ -153,7 +154,9 @@ class Area(enum.Enum):
     UA_BEI =         "10YUA-WEPS-----0", "Ukraine BEI CTA",                                            "Europe/Kiev",
     UA_IPS =         "10Y1001C--000182", "Ukraine IPS CTA",                                            "Europe/Kiev",
     XK =             "10Y1001C--00100H", "Kosovo/ XK CA / XK BZN",                                     "Europe/Rome",
-    DE_AMP_LU =      "10Y1001C--00002H", "Amprion LU CA",                                              "Europe/Berlin"
+    DE_AMP_LU =      "10Y1001C--00002H", "Amprion LU CA",                                              "Europe/Berlin",
+    # fmt: on
+
 
 # https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html#_psrtype
 PSRTYPE_MAPPINGS = {
