@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta, tzinfo
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from dateutil.relativedelta import relativedelta
 from pytz import timezone
 
@@ -33,10 +33,10 @@ def resolution_to_timedelta(res_text: str) -> timedelta | relativedelta:
     return delta
 
 
-def parse_timeseries_generic(soup: BeautifulSoup, label: str, *, period_name: str = "period") -> dict[str, list]:
+def parse_timeseries_generic(soup: Tag, label: str, *, period_name: str = "period") -> dict[str, list]:
     """Parse Timeseries.
 
-    :param BeautifulSoup soup:
+    :param Tag soup:
     :param str label:
     :param str period_name: defaults to "period"
     :param str backend:
@@ -102,7 +102,7 @@ def parse_freq(freq: str) -> relativedelta:
     :return relativedelta:
     """
     regex = re.compile(
-        r"^((?P<years>[\.\d]+?)y)?((?P<months>[\.\d]+?)m)?((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)?((?P<seconds>[\.\d]+?)s)?$"
+        r"^((?P<years>[\.\d]+?)y)?((?P<months>[\.\d]+?)mo)?((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)?((?P<seconds>[\.\d]+?)s)?$"
     )
     parts = regex.match(freq)
     if parts is None:
