@@ -44,16 +44,16 @@ def documents_limited(n: int = 100):
 
     def decorator(func):
         @wraps(func)
-        async def documents_wrapper(*args, _offset: int, **kwargs):
+        async def documents_wrapper(*args, offset: int, **kwargs):
             frames = []
-            for offset in range(0, 4800 + n, n):
+            for _offset in range(0, 4800 + n, n):
                 try:
-                    frame: nw.DataFrame | None = await func(*args, offset=offset, **kwargs)
+                    frame: nw.DataFrame | None = await func(*args, offset=_offset, **kwargs)
                     if frame is not None:
                         frames.append(frame)
 
                 except NoMatchingDataError:
-                    logger.debug(f"NoMatchingDataError: for offset {offset}")
+                    logger.debug(f"NoMatchingDataError: for offset {_offset}")
                     break
 
             if frames == []:
