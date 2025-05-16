@@ -51,12 +51,12 @@ class Client:
     @split_query("1y")
     async def query_day_ahead_prices(
         self, country_code: Area | str, *, start: datetime | str, end: datetime | str
-    ) -> nw.DataFrame:
+    ) -> nw.DataFrame | None:
         """Query day-ahead prices.
 
         :param datetime start: Start of the query. Must be tz-aware
         :param datetime end: End of the query. Must be tz-aware
-        :return DataFrame:
+        :return nw.DataFrame | None:
         """
         domain = lookup_area(country_code)
         params = {
@@ -68,10 +68,8 @@ class Client:
         start_str = parse_datetime(start, domain.tz)
         end_str = parse_datetime(end, domain.tz)
         response = await self._base_request(params, start_str, end_str)
-        df = parse_timeseries_generic_whole(
-            response,
-            label="price.amount",
-            schema=DAY_AHEAD_SCHEMA,
-            backend=self.backend,
-        )
+        data_all = parse_timeseries_generic_whole(response, label="price.amount")
+        if data_all == []:
+            return None
+        df = nw.concat([nw.from_dict(e, DAY_AHEAD_SCHEMA, backend=self.backend) for e in data_all], how="diagonal")
         return df

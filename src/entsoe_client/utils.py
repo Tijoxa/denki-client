@@ -67,23 +67,25 @@ def yield_date_range(start: datetime | str, end: datetime | str, freq: relatived
     :yield str: _end, isoformat
     """
     if isinstance(start, str):
-        start = datetime.fromisoformat(start).astimezone(UTC)
+        start = datetime.fromisoformat(start)
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=UTC)
     if isinstance(end, str):
-        end = datetime.fromisoformat(end).astimezone(UTC)
+        end = datetime.fromisoformat(end)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=UTC)
     if isinstance(freq, str):
         freq = parse_freq(freq)
 
-    current = start + freq
+    current = start
     if current > end:
-        yield start, end
+        yield start.isoformat(), end.isoformat()
         return
 
     while current < end:
-        yield start, current
-        start = current
-        current += freq
-
-    yield current.isoformat(), end.isoformat()
+        next_one = min(current + freq, end)
+        yield current.isoformat(), next_one.isoformat()
+        current = next_one
 
 
 def split_query(freq: relativedelta | str):
@@ -97,8 +99,8 @@ def split_query(freq: relativedelta | str):
             frames = []
             for _start, _end in blocks:
                 try:
-                    frame: nw.DataFrame = await func(*args, start=_start, end=_end, **kwargs)
-                    if not frame.is_empty():
+                    frame: nw.DataFrame | None = await func(*args, start=_start, end=_end, **kwargs)
+                    if frame is not None:
                         frames.append(frame)
 
                 except NoMatchingDataError:

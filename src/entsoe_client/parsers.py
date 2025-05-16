@@ -3,7 +3,6 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta, tzinfo
 
 import httpx
-import narwhals as nw
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from pytz import timezone
@@ -34,16 +33,14 @@ def resolution_to_timedelta(res_text: str) -> timedelta | relativedelta:
     return delta
 
 
-def parse_timeseries_generic(
-    soup: BeautifulSoup, label: str, *, period_name: str = "period", schema: nw.Schema | None, backend: str
-) -> nw.DataFrame:
+def parse_timeseries_generic(soup: BeautifulSoup, label: str, *, period_name: str = "period") -> dict[str, list]:
     """Parse Timeseries.
 
     :param BeautifulSoup soup:
     :param str label:
     :param str period_name: defaults to "period"
     :param str backend:
-    :return DataFrame:
+    :return dict[str, list]:
     """
     data = defaultdict(list)
 
@@ -59,26 +56,24 @@ def parse_timeseries_generic(
             data[delta_text + "_timestamp"].append(start + (position - 1) * delta)
             data[delta_text + "_value"].append(value)
 
-    return nw.from_dict(data, schema, backend=backend)
+    return dict(data)
 
 
-def parse_timeseries_generic_whole(
-    response: httpx.Response, label: str, *, backend: str, schema: nw.Schema | None
-) -> nw.DataFrame:
+def parse_timeseries_generic_whole(response: httpx.Response, label: str) -> list[dict[str, list]]:
     """Parse whole Timeseries.
 
     :param httpx.Response response:
     :param str label: defaults to "quantity"
     :param str backend:
-    :return DataFrame:
+    :return list[dict[str, list]]:
     """
     data_all = []
     soup = BeautifulSoup(response.text, "html.parser")
     for timeseries in soup.find_all("timeseries"):
-        data = parse_timeseries_generic(timeseries, label=label, schema=schema, backend=backend)
+        data = parse_timeseries_generic(timeseries, label=label)
         data_all.append(data)
 
-    return nw.concat(data_all, how="diagonal")
+    return data_all
 
 
 def parse_datetime(date: datetime | str, target_tz: tzinfo | str = UTC) -> str:
