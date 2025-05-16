@@ -57,25 +57,24 @@ def raise_response_error(response: httpx.Response):
                 requested = error_text.split(" ")[-2]
                 allowed = error_text.split(" ")[-5]
                 raise PaginationError(
-                    f"The API is limited to {allowed} elements per "
-                    f"request. This query requested for {requested} "
-                    f"documents and cannot be fulfilled as is."
+                    f"""The API is limited to {allowed} elements per
+                    request. This query requested for {requested}
+                    documents and cannot be fulfilled as is."""
                 )
             elif "requested data to be gathered via the offset parameter exceeds the allowed limit" in error_text:
                 requested = error_text.split(" ")[-9]
                 allowed = error_text.split(" ")[-30][:-2]
                 raise PaginationError(
-                    f"The API is limited to {allowed} elements per "
-                    f"request. This query requested for {requested} "
-                    f"documents and cannot be fulfilled as is."
+                    f"""The API is limited to {allowed} elements per
+                    request. This query requested for {requested}
+                    documents and cannot be fulfilled as is."""
                 )
         raise e
     else:
-        """ENTSO-E has changed their server to also respond with 200 if there is no data but all parameters are valid
+        """ENTSO-e has changed their server to also respond with 200 if there is no data but all parameters are valid
         this means we need to check the contents for this error even when status code 200 is returned
         to prevent parsing the full response do a text matching instead of full parsing
-        also only do this when response type content is text and not for example a zip file.
-        """
+        also only do this when response type content is text and not for example a zip file."""
         if response.headers.get("content-type", "") == "application/xml":
             if "No matching data found" in response.text:
                 raise NoMatchingDataError
