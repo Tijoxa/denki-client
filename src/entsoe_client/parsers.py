@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from pytz import timezone
 
-from .exceptions import ParseError
+from .exceptions import ParseError, TzNaiveError
 
 
 def resolution_to_timedelta(res_text: str) -> timedelta | relativedelta:
@@ -35,7 +35,7 @@ def resolution_to_timedelta(res_text: str) -> timedelta | relativedelta:
 
 
 def parse_timeseries_generic(
-    soup: BeautifulSoup, label: str, *, period_name: str = "period", backend: str
+    soup: BeautifulSoup, label: str, *, period_name: str = "period", schema: nw.Schema | None, backend: str
 ) -> nw.DataFrame:
     """Parse Timeseries.
 
@@ -59,10 +59,12 @@ def parse_timeseries_generic(
             data[delta_text + "_timestamp"].append(start + (position - 1) * delta)
             data[delta_text + "_value"].append(value)
 
-    return nw.from_dict(data, backend=backend)
+    return nw.from_dict(data, schema, backend=backend)
 
 
-def parse_timeseries_generic_whole(response: httpx.Response, label: str, *, backend: str) -> nw.DataFrame:
+def parse_timeseries_generic_whole(
+    response: httpx.Response, label: str, *, backend: str, schema: nw.Schema | None
+) -> nw.DataFrame:
     """Parse whole Timeseries.
 
     :param httpx.Response response:
@@ -73,7 +75,7 @@ def parse_timeseries_generic_whole(response: httpx.Response, label: str, *, back
     data_all = []
     soup = BeautifulSoup(response.text, "html.parser")
     for timeseries in soup.find_all("timeseries"):
-        data = parse_timeseries_generic(timeseries, label=label, backend=backend)
+        data = parse_timeseries_generic(timeseries, label=label, schema=schema, backend=backend)
         data_all.append(data)
 
     return nw.concat(data_all, how="diagonal")
@@ -82,16 +84,21 @@ def parse_timeseries_generic_whole(response: httpx.Response, label: str, *, back
 def parse_datetime(date: datetime | str, target_tz: tzinfo | str = UTC) -> str:
     """Parse Datetime.
 
-    :param datetime | str date: datetime to parse
+    :param datetime | str date: datetime to parse. If datetime, must be tz-aware
     :param tzinfo target_tz: target timezone, defaults to UTC
     :raises TzNaiveError:
     :return str: Datetime in format yyyyMMddHHmm
     """
+    if isinstance(target_tz, str):
+        target_tz = timezone(target_tz)
     if isinstance(date, datetime):
-        date = date.astimezone(timezone(target_tz))
+        if date.tzinfo is None:
+            raise TzNaiveError
+        date = date.astimezone(target_tz)
     elif isinstance(date, str):
-        date = datetime.fromisoformat(date).astimezone(timezone(target_tz))
+        date = datetime.fromisoformat(date).astimezone(target_tz)
     return date.strftime("%Y%m%d%H%M")
+
 
 def parse_freq(freq: str) -> relativedelta:
     """Parse a time string e.g. (2h13m) into a relativedelta object.

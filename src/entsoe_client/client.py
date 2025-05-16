@@ -9,6 +9,7 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 from entsoe_client.area import Area, lookup_area
 from entsoe_client.parsers import parse_datetime, parse_timeseries_generic_whole
+from entsoe_client.schemas import DAY_AHEAD_SCHEMA
 from entsoe_client.utils import split_query
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
@@ -67,5 +68,10 @@ class Client:
         start_str = parse_datetime(start, domain.tz)
         end_str = parse_datetime(end, domain.tz)
         response = await self._base_request(params, start_str, end_str)
-        df = parse_timeseries_generic_whole(response, label="price.amount", backend=self.backend)
+        df = parse_timeseries_generic_whole(
+            response,
+            label="price.amount",
+            schema=DAY_AHEAD_SCHEMA,
+            backend=self.backend,
+        )
         return df

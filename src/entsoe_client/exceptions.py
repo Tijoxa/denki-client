@@ -18,5 +18,9 @@ class InvalidParameterError(Exception):
     pass
 
 
+class TzNaiveError(Exception):
+    pass
+
+
 class ParseError(Exception):
     pass

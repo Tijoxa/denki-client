@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import wraps
 
 import narwhals as nw
@@ -63,11 +63,13 @@ def yield_date_range(start: datetime | str, end: datetime | str, freq: relatived
     :param datetime | str start: if str, must be isoformat.
     :param datetime | str end: if str, must be isoformat.
     :param relativedelta | str freq:
+    :yield str: _start, isoformat
+    :yield str: _end, isoformat
     """
     if isinstance(start, str):
-        start = datetime.fromisoformat(start)
+        start = datetime.fromisoformat(start).astimezone(UTC)
     if isinstance(end, str):
-        end = datetime.fromisoformat(end)
+        end = datetime.fromisoformat(end).astimezone(UTC)
     if isinstance(freq, str):
         freq = parse_freq(freq)
 
@@ -81,7 +83,7 @@ def yield_date_range(start: datetime | str, end: datetime | str, freq: relatived
         start = current
         current += freq
 
-    yield current, end
+    yield current.isoformat(), end.isoformat()
 
 
 def split_query(freq: relativedelta | str):
