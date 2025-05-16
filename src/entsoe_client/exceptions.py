@@ -38,9 +38,6 @@ def raise_response_error(response: httpx.Response):
     :raises InvalidBusinessParameterError:
     :raises InvalidPSRTypeError:
     :raises PaginationError:
-    :raises PaginationError:
-    :raises e:
-    :raises NoMatchingDataError:
     :return httpx.Response:
     """
     try:
@@ -48,8 +45,8 @@ def raise_response_error(response: httpx.Response):
     except httpx.HTTPError as e:
         soup = BeautifulSoup(response.text, "html.parser")
         text = soup.find_all("text")
-        if len(text):
-            error_text = soup.find("text").text
+        if len(text) > 0:
+            error_text: str = soup.find("text").text
             if "No matching data found" in error_text:
                 raise NoMatchingDataError
             elif "check you request against dependency tables" in error_text:
@@ -74,10 +71,11 @@ def raise_response_error(response: httpx.Response):
                 )
         raise e
     else:
-        # ENTSO-E has changed their server to also respond with 200 if there is no data but all parameters are valid
-        # this means we need to check the contents for this error even when status code 200 is returned
-        # to prevent parsing the full response do a text matching instead of full parsing
-        # also only do this when response type content is text and not for example a zip file
+        """ENTSO-E has changed their server to also respond with 200 if there is no data but all parameters are valid
+        this means we need to check the contents for this error even when status code 200 is returned
+        to prevent parsing the full response do a text matching instead of full parsing
+        also only do this when response type content is text and not for example a zip file.
+        """
         if response.headers.get("content-type", "") == "application/xml":
             if "No matching data found" in response.text:
                 raise NoMatchingDataError
