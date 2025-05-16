@@ -107,7 +107,7 @@ def parse_freq(freq: str) -> relativedelta:
     parts = regex.match(freq)
     if parts is None:
         raise ParseError(
-            f"Could not parse any time information from '{freq}'. Examples of valid strings: '8h', '2d8h5m20s','2m4s', '1y2m'"
+            f"Could not parse any time information from '{freq}'. Examples of valid strings: '8h', '2d8h5m20s','2m4s', '1y2mo'"
         )
     time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
     return relativedelta(**time_params)
