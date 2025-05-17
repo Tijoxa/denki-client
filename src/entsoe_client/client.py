@@ -79,7 +79,7 @@ class BaseClient:
         start_str = start.strftime("%Y%m%d%H%M")
         end_str = end.strftime("%Y%m%d%H%M")
         response = await self._base_request(params, start_str, end_str)
-        data_all = parse_timeseries_generic_whole(response, label="price.amount")
+        data_all = parse_timeseries_generic_whole(response.text, label="price.amount")
         if data_all == []:
             return None
         df = nw.concat([nw.from_dict(e, DAY_AHEAD_SCHEMA, backend=self.backend) for e in data_all], how="diagonal")

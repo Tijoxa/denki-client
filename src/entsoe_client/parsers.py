@@ -2,7 +2,6 @@ import re
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta, tzinfo
 
-import httpx
 from bs4 import BeautifulSoup, Tag
 from dateutil.relativedelta import relativedelta
 from pytz import timezone
@@ -97,16 +96,16 @@ def parse_timeseries_generic(soup: Tag, label: str, *, period_name: str = "perio
     return dict(data)
 
 
-def parse_timeseries_generic_whole(response: httpx.Response, label: str) -> list[dict[str, list]]:
+def parse_timeseries_generic_whole(xml_text: str, label: str) -> list[dict[str, list]]:
     """Parse whole Timeseries.
 
-    :param httpx.Response response:
+    :param str xml_text:
     :param str label: defaults to "quantity"
     :param str backend:
     :return list[dict[str, list]]:
     """
     data_all = []
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = BeautifulSoup(xml_text, "html.parser")
     for timeseries in soup.find_all("timeseries"):
         data = parse_timeseries_generic(timeseries, label=label)
         data_all.append(data)
