@@ -1,4 +1,7 @@
+from datetime import UTC, datetime
+
 import pytest
+from dateutil.relativedelta import relativedelta
 
 from entsoe_client.utils import yield_date_range
 
@@ -7,62 +10,62 @@ from entsoe_client.utils import yield_date_range
     "start, end, freq, expected",
     [
         (
-            "20230101",
-            "20250102",
-            "1y",
+            datetime(2023, 1, 1, tzinfo=UTC),
+            datetime(2025, 1, 2, tzinfo=UTC),
+            relativedelta(years=1),
             [
-                ("2023-01-01T00:00:00+00:00", "2024-01-01T00:00:00+00:00"),
-                ("2024-01-01T00:00:00+00:00", "2025-01-01T00:00:00+00:00"),
-                ("2025-01-01T00:00:00+00:00", "2025-01-02T00:00:00+00:00"),
+                (datetime(2023, 1, 1, tzinfo=UTC), datetime(2024, 1, 1, tzinfo=UTC)),
+                (datetime(2024, 1, 1, tzinfo=UTC), datetime(2025, 1, 1, tzinfo=UTC)),
+                (datetime(2025, 1, 1, tzinfo=UTC), datetime(2025, 1, 2, tzinfo=UTC)),
             ],
         ),
         (
-            "20230101",
-            "20230302",
-            "1mo",
+            datetime(2023, 1, 1, tzinfo=UTC),
+            datetime(2023, 3, 2, tzinfo=UTC),
+            relativedelta(months=1),
             [
-                ("2023-01-01T00:00:00+00:00", "2023-02-01T00:00:00+00:00"),
-                ("2023-02-01T00:00:00+00:00", "2023-03-01T00:00:00+00:00"),
-                ("2023-03-01T00:00:00+00:00", "2023-03-02T00:00:00+00:00"),
+                (datetime(2023, 1, 1, tzinfo=UTC), datetime(2023, 2, 1, tzinfo=UTC)),
+                (datetime(2023, 2, 1, tzinfo=UTC), datetime(2023, 3, 1, tzinfo=UTC)),
+                (datetime(2023, 3, 1, tzinfo=UTC), datetime(2023, 3, 2, tzinfo=UTC)),
             ],
         ),
         (
-            "20230101",
-            "20230103 23:00:00",
-            "1d",
+            datetime(2023, 1, 1, tzinfo=UTC),
+            datetime(2023, 1, 3, 23, tzinfo=UTC),
+            relativedelta(days=1),
             [
-                ("2023-01-01T00:00:00+00:00", "2023-01-02T00:00:00+00:00"),
-                ("2023-01-02T00:00:00+00:00", "2023-01-03T00:00:00+00:00"),
-                ("2023-01-03T00:00:00+00:00", "2023-01-03T23:00:00+00:00"),
+                (datetime(2023, 1, 1, tzinfo=UTC), datetime(2023, 1, 2, tzinfo=UTC)),
+                (datetime(2023, 1, 2, tzinfo=UTC), datetime(2023, 1, 3, tzinfo=UTC)),
+                (datetime(2023, 1, 3, tzinfo=UTC), datetime(2023, 1, 3, 23, tzinfo=UTC)),
             ],
         ),
         (
-            "20230101",
-            "20230101 02:45:00",
-            "1h",
+            datetime(2023, 1, 1, tzinfo=UTC),
+            datetime(2023, 1, 1, 2, 45, tzinfo=UTC),
+            relativedelta(hours=1),
             [
-                ("2023-01-01T00:00:00+00:00", "2023-01-01T01:00:00+00:00"),
-                ("2023-01-01T01:00:00+00:00", "2023-01-01T02:00:00+00:00"),
-                ("2023-01-01T02:00:00+00:00", "2023-01-01T02:45:00+00:00"),
+                (datetime(2023, 1, 1, tzinfo=UTC), datetime(2023, 1, 1, 1, tzinfo=UTC)),
+                (datetime(2023, 1, 1, 1, tzinfo=UTC), datetime(2023, 1, 1, 2, tzinfo=UTC)),
+                (datetime(2023, 1, 1, 2, tzinfo=UTC), datetime(2023, 1, 1, 2, 45, tzinfo=UTC)),
             ],
         ),
         (
-            "20230101",
-            "20230101 00:02:45",
-            "1m",
+            datetime(2023, 1, 1, tzinfo=UTC),
+            datetime(2023, 1, 1, 0, 2, 45, tzinfo=UTC),
+            relativedelta(minutes=1),
             [
-                ("2023-01-01T00:00:00+00:00", "2023-01-01T00:01:00+00:00"),
-                ("2023-01-01T00:01:00+00:00", "2023-01-01T00:02:00+00:00"),
-                ("2023-01-01T00:02:00+00:00", "2023-01-01T00:02:45+00:00"),
+                (datetime(2023, 1, 1, tzinfo=UTC), datetime(2023, 1, 1, 0, 1, tzinfo=UTC)),
+                (datetime(2023, 1, 1, 0, 1, tzinfo=UTC), datetime(2023, 1, 1, 0, 2, tzinfo=UTC)),
+                (datetime(2023, 1, 1, 0, 2, tzinfo=UTC), datetime(2023, 1, 1, 0, 2, 45, tzinfo=UTC)),
             ],
         ),
         (
-            "20230101",
-            "20230101 00:00:02",
-            "1s",
+            datetime(2023, 1, 1, tzinfo=UTC),
+            datetime(2023, 1, 1, 0, 0, 2, tzinfo=UTC),
+            relativedelta(seconds=1),
             [
-                ("2023-01-01T00:00:00+00:00", "2023-01-01T00:00:01+00:00"),
-                ("2023-01-01T00:00:01+00:00", "2023-01-01T00:00:02+00:00"),
+                (datetime(2023, 1, 1, tzinfo=UTC), datetime(2023, 1, 1, 0, 0, 1, tzinfo=UTC)),
+                (datetime(2023, 1, 1, 0, 0, 1, tzinfo=UTC), datetime(2023, 1, 1, 0, 0, 2, tzinfo=UTC)),
             ],
         ),
     ],

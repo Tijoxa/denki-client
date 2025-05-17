@@ -17,4 +17,4 @@ target/
 nb/
 py.typed
 .python-version
-uv.lock
+*.pyd

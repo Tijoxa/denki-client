@@ -104,3 +104,7 @@ class Client(BaseClient):
         start = parse_datetime(start, domain.tz)
         end = parse_datetime(end, domain.tz)
         return await super().query_day_ahead_prices(domain.code, start=start, end=end, offset=0)
+
+    async def query_activated_balancing_energy_prices(
+        self, country_code: Area | str, *, start: datetime | str, end: datetime | str
+    ) -> nw.DataFrame | None: ...
