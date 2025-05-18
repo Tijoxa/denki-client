@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.98"
-chrono = "0.4.41"
+jiff = "0.2.13"
 # "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
 # "abi3-py310" tells pyo3 (and maturin) to build using the stable ABI with minimum Python version 3.10
 pyo3 = { version = ">=0.23.5", features = ["extension-module", "abi3-py310"] }

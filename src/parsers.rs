@@ -1,18 +1,18 @@
-use chrono::{DateTime, Duration};
+use jiff::{Span, Timestamp};
 use std::collections::HashMap;
 use std::str;
 use xml::reader::{EventReader, XmlEvent};
 
-fn resolution_to_timedelta(res_text: &str) -> Option<Duration> {
-    let resolutions: HashMap<&str, Duration> = [
-        ("PT60M", Duration::minutes(60)),
-        // ("P1Y", Duration::days(365)), // not exact
-        ("PT15M", Duration::minutes(15)),
-        ("PT30M", Duration::minutes(30)),
-        ("P1D", Duration::days(1)),
-        ("P7D", Duration::days(7)),
-        // ("P1M", Duration::days(30)), // not exact
-        ("PT1M", Duration::minutes(1)),
+fn resolution_to_timedelta(res_text: &str) -> Option<Span> {
+    let resolutions: HashMap<&str, Span> = [
+        ("PT60M", Span::new().minutes(60)),
+        ("P1Y", Span::new().years(1)),
+        ("PT15M", Span::new().minutes(15)),
+        ("PT30M", Span::new().minutes(30)),
+        ("P1D", Span::new().days(1)),
+        ("P7D", Span::new().days(7)),
+        ("P1M", Span::new().months(1)),
+        ("PT1M", Span::new().minutes(1)),
     ]
     .iter()
     .cloned()
@@ -70,13 +70,12 @@ pub fn parse_timeseries_generic(
                         } else {
                             start.clone() + ":00"
                         };
-                        let start = DateTime::parse_from_rfc3339(&start_iso)
-                            .map_err(|e| anyhow::anyhow!("Failed to parse start '{}': {}", start, e))?;
+                        let start: Timestamp = start_iso.parse()?;
                         let delta = resolution_to_timedelta(resolution).unwrap();
-                        let timestamp = start + delta * (*position as i32 - 1);
+                        let timestamp = start + delta * (*position as i64 - 1);
                         data.entry(resolution.clone() + "_timestamp")
                             .or_default()
-                            .push(timestamp.to_rfc3339());
+                            .push(timestamp.to_string());
                         data.entry(resolution.clone() + "_value")
                             .or_default()
                             .push(value.clone());
@@ -153,6 +152,10 @@ mod tests {
             data.contains_key("PT60M_value"),
             "{}",
             format!("Keys: {:?}", data.keys())
+        );
+        assert_eq!(
+            data["PT60M_timestamp"],
+            vec!["2023-12-31T23:00:00Z", "2024-01-01T00:00:00Z"]
         );
         assert_eq!(data["PT60M_value"], vec!["104.98", "105.98"]);
     }
