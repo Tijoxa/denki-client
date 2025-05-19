@@ -1,25 +1,21 @@
-use jiff::{Span, Timestamp};
+use anyhow::anyhow;
+use jiff::{Span, Timestamp, ToSpan};
 use pyo3::IntoPyObject;
-use std::collections::HashMap;
-use std::str;
+use std::{collections::HashMap, sync::LazyLock};
 use xml::reader::{EventReader, XmlEvent};
 
-fn resolution_to_timedelta(res_text: &str) -> Option<Span> {
-    let resolutions: HashMap<&str, Span> = [
-        ("PT60M", Span::new().minutes(60)),
-        ("P1Y", Span::new().years(1)),
-        ("PT15M", Span::new().minutes(15)),
-        ("PT30M", Span::new().minutes(30)),
-        ("P1D", Span::new().days(1)),
-        ("P7D", Span::new().days(7)),
-        ("P1M", Span::new().months(1)),
-        ("PT1M", Span::new().minutes(1)),
-    ]
-    .iter()
-    .cloned()
-    .collect();
-    resolutions.get(res_text).cloned()
-}
+static RESOLUTIONS: LazyLock<HashMap<&'static str, Span>> = LazyLock::new(|| {
+    HashMap::from([
+        ("PT60M", 60.minutes()),
+        ("P1Y", 1.year()),
+        ("PT15M", 15.minutes()),
+        ("PT30M", 30.minutes()),
+        ("P1D", 1.day()),
+        ("P7D", 7.days()),
+        ("P1M", 1.month()),
+        ("PT1M", 1.minute()),
+    ])
+});
 
 #[derive(Debug, PartialEq, IntoPyObject)]
 pub enum Data {
@@ -78,8 +74,10 @@ pub fn parse_timeseries_generic(
                             start.clone() + ":00"
                         };
                         let start: Timestamp = start_iso.parse()?;
-                        let delta = resolution_to_timedelta(resolution).unwrap();
-                        let timestamp = start + delta * (position - 1);
+                        let delta = RESOLUTIONS
+                            .get(resolution.as_str())
+                            .ok_or(anyhow!("Resolution not found"))?;
+                        let timestamp = start + *delta * (position - 1);
                         data.entry(resolution.clone() + "_timestamp")
                             .or_default()
                             .push(Data::Timestamp(timestamp.clone()));
