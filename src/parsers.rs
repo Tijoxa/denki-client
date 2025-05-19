@@ -1,4 +1,5 @@
 use jiff::{Span, Timestamp};
+use pyo3::IntoPyObject;
 use std::collections::HashMap;
 use std::str;
 use xml::reader::{EventReader, XmlEvent};
@@ -20,18 +21,24 @@ fn resolution_to_timedelta(res_text: &str) -> Option<Span> {
     resolutions.get(res_text).cloned()
 }
 
+#[derive(Debug, PartialEq, IntoPyObject)]
+pub enum Data {
+    F64(f64),
+    Timestamp(Timestamp),
+}
+
 pub fn parse_timeseries_generic(
     xml_text: &str,
     label: &str,
     period_name: &str,
-) -> Result<HashMap<String, Vec<String>>, anyhow::Error> {
-    let mut data: HashMap<String, Vec<String>> = HashMap::new();
+) -> Result<HashMap<String, Vec<Data>>, anyhow::Error> {
+    let mut data: HashMap<String, Vec<Data>> = HashMap::new();
     let parser = EventReader::from_str(xml_text);
 
     let mut current_period_start: Option<String> = None;
     let mut current_period_resolution: Option<String> = None;
-    let mut current_position: Option<usize> = None;
-    let mut current_value: Option<String> = None;
+    let mut current_position: Option<i64> = None;
+    let mut current_value: Option<f64> = None;
     let mut current_element: Option<String> = None;
 
     for e in parser {
@@ -54,7 +61,7 @@ pub fn parse_timeseries_generic(
                 } else if current_element == Some("position".to_string()) {
                     current_position = Some(text.parse()?);
                 } else if current_element == Some(label.to_string()) {
-                    current_value = Some(text);
+                    current_value = Some(text.parse::<f64>()?);
                 }
             }
             Ok(XmlEvent::EndElement { name }) => {
@@ -72,13 +79,13 @@ pub fn parse_timeseries_generic(
                         };
                         let start: Timestamp = start_iso.parse()?;
                         let delta = resolution_to_timedelta(resolution).unwrap();
-                        let timestamp = start + delta * (*position as i64 - 1);
+                        let timestamp = start + delta * (position - 1);
                         data.entry(resolution.clone() + "_timestamp")
                             .or_default()
-                            .push(timestamp.to_string());
+                            .push(Data::Timestamp(timestamp.clone()));
                         data.entry(resolution.clone() + "_value")
                             .or_default()
-                            .push(value.clone());
+                            .push(Data::F64(value.clone()));
                     }
                 }
             }
@@ -92,7 +99,7 @@ pub fn parse_timeseries_generic(
 
 #[cfg(test)]
 mod tests {
-    use super::parse_timeseries_generic;
+    use super::{parse_timeseries_generic, Data};
 
     #[test]
     fn test_parse_timeseries_generic() {
@@ -155,8 +162,11 @@ mod tests {
         );
         assert_eq!(
             data["PT60M_timestamp"],
-            vec!["2023-12-31T23:00:00Z", "2024-01-01T00:00:00Z"]
+            vec![
+                Data::Timestamp("2023-12-31T23:00:00Z".parse().unwrap()),
+                Data::Timestamp("2024-01-01T00:00:00Z".parse().unwrap()),
+            ]
         );
-        assert_eq!(data["PT60M_value"], vec!["104.98", "105.98"]);
+        assert_eq!(data["PT60M_value"], vec![Data::F64(104.98), Data::F64(105.98)]);
     }
 }

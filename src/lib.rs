@@ -9,7 +9,7 @@ fn parse_timeseries_generic_py(
     xml_text: &str,
     label: &str,
     period_name: &str,
-) -> PyResult<HashMap<String, Vec<String>>> {
+) -> PyResult<HashMap<String, Vec<parsers::Data>>> {
     parsers::parse_timeseries_generic(xml_text, label, period_name)
         .map_err(|e| PyErr::new::<PyValueError, _>(e.to_string()))
 }

@@ -7,9 +7,10 @@ import narwhals as nw
 from bs4 import XMLParsedAsHTMLWarning
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
+from entsoe_client._core import parse_timeseries_generic
 from entsoe_client.area import Area, lookup_area
 from entsoe_client.exceptions import raise_response_error
-from entsoe_client.parsers import parse_datetime, parse_timeseries_generic_whole
+from entsoe_client.parsers import parse_datetime
 from entsoe_client.schemas import DAY_AHEAD_SCHEMA
 from entsoe_client.utils import documents_limited, inclusive, split_query
 
@@ -79,10 +80,10 @@ class BaseClient:
         start_str = start.strftime("%Y%m%d%H%M")
         end_str = end.strftime("%Y%m%d%H%M")
         response = await self._base_request(params, start_str, end_str)
-        data_all = parse_timeseries_generic_whole(response.text, label="price.amount")
-        if data_all == []:
+        data_all = parse_timeseries_generic(response.text, "price.amount", "period")
+        if data_all == {}:
             return None
-        df = nw.concat([nw.from_dict(e, DAY_AHEAD_SCHEMA, backend=self.backend) for e in data_all], how="diagonal")
+        df = nw.from_dict(data_all, DAY_AHEAD_SCHEMA, backend=self.backend)
         return df
 
 
