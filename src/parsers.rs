@@ -80,10 +80,10 @@ pub fn parse_timeseries_generic(
                         let timestamp = start + *delta * (position - 1);
                         data.entry(resolution.clone() + "_timestamp")
                             .or_default()
-                            .push(Data::Timestamp(timestamp.clone()));
+                            .push(Data::Timestamp(timestamp));
                         data.entry(resolution.clone() + "_value")
                             .or_default()
-                            .push(Data::F64(value.clone()));
+                            .push(Data::F64(*value));
                     }
                 }
             }
