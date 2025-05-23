@@ -21,7 +21,7 @@ static RESOLUTIONS: LazyLock<HashMap<&'static str, Span>> = LazyLock::new(|| {
 pub enum Data {
     F64(f64),
     Timestamp(Timestamp),
-    Resolution(String),
+    String(String),
 }
 
 pub fn parse_timeseries_generic(
@@ -29,6 +29,15 @@ pub fn parse_timeseries_generic(
     label: &str,
     period_name: &str,
 ) -> Result<HashMap<String, Vec<Data>>, anyhow::Error> {
+    /* TODO: change signature to
+    xml_text: &str,
+    labels: Vec<&str>,
+    metadata: Vec<&str>,
+    period_name: &str,
+
+    where labels are xml tags that we need to fetch inside the `period_name` tag
+    and metadata are xml tags taht we need to fetch after the `TimeSeries` tag
+    */
     let mut data: HashMap<String, Vec<Data>> = HashMap::new();
     let parser = EventReader::from_str(xml_text);
 
@@ -85,7 +94,7 @@ pub fn parse_timeseries_generic(
                         data.entry("value".to_string()).or_default().push(Data::F64(*value));
                         data.entry("resolution".to_string())
                             .or_default()
-                            .push(Data::Resolution(resolution.clone()));
+                            .push(Data::String(resolution.clone()));
                     }
                 }
             }
@@ -102,7 +111,7 @@ mod tests {
     use super::{parse_timeseries_generic, Data};
 
     #[test]
-    fn test_parse_timeseries_generic() {
+    fn test_parse_timeseries_generic_day_ahead_prices() {
         let xml_text = r#"<?xml version="1.0" encoding="utf-8"?>
         <publication_marketdocument xmlns="urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:3">
         <mRID>bf4445f7e6e04c849b7e0830b906fbde</mRID>
@@ -167,10 +176,80 @@ mod tests {
         assert_eq!(data["value"], vec![Data::F64(104.98), Data::F64(105.98)]);
         assert_eq!(
             data["resolution"],
+            vec![Data::String("PT60M".to_string()), Data::String("PT60M".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_parse_timeseries_balancy_energy_prices() {
+        let xml_text = r#"<?xml version="1.0" encoding="utf-8"?>
+        <Balancing_MarketDocument xmlns="urn:iec62325.351:tc57wg16:451-6:balancingdocument:4:1">
+        <mRID>05e317126b4f46f3bb4af1f0314ca0e7</mRID>
+        <revisionNumber>1</revisionNumber>
+        <type>A84</type>
+        <process.processType>A16</process.processType>
+        <sender_MarketParticipant.mRID codingScheme="A01">10X1001A1001A450</sender_MarketParticipant.mRID>
+        <sender_MarketParticipant.marketRole.type>A32</sender_MarketParticipant.marketRole.type>
+        <receiver_MarketParticipant.mRID codingScheme="A01">10X1001A1001A450</receiver_MarketParticipant.mRID>
+        <receiver_MarketParticipant.marketRole.type>A33</receiver_MarketParticipant.marketRole.type>
+        <createdDateTime>2024-09-24T15:45:51Z</createdDateTime>
+        <area_Domain.mRID codingScheme="A01">10YBE----------2</area_Domain.mRID>
+        <period.timeInterval>
+            <start>2023-09-03T22:00Z</start>
+            <end>2023-09-04T22:00Z</end>
+        </period.timeInterval>
+        <TimeSeries>
+            <mRID>1</mRID>
+            <businessType>A96</businessType>
+            <original_MarketProduct.marketProductType>A02</original_MarketProduct.marketProductType>
+            <mktPSRType.psrType>A03</mktPSRType.psrType>
+            <flowDirection.direction>A01</flowDirection.direction>
+            <currency_Unit.name>EUR</currency_Unit.name>
+            <price_Measure_Unit.name>MWH</price_Measure_Unit.name>
+            <curveType>A03</curveType>
+            <Period>
+                <timeInterval>
+                    <start>2023-09-03T22:00Z</start>
+                    <end>2023-09-04T22:00Z</end>
+                </timeInterval>
+                <resolution>PT15M</resolution>
+                <Point>
+                    <position>1</position>
+                    <activation_Price.amount>116.17</activation_Price.amount>
+                    <imbalance_Price.category>A06</imbalance_Price.category>
+                </Point>
+                <Point>
+                    <position>3</position>
+                    <activation_Price.amount>111.17</activation_Price.amount>
+                    <imbalance_Price.category>A06</imbalance_Price.category>
+                </Point>
+            </Period>
+            </TimeSeries>
+            </publication_marketdocument>
+            "#;
+
+        let result = parse_timeseries_generic(xml_text, "activation_Price.amount", "period"); // imbalance_Price.category
+        assert!(result.is_ok(), "{}", format!("Error: {:?}", result.err().unwrap()));
+
+        let data = result.unwrap();
+        assert!(data.contains_key("timestamp"), "{}", format!("Keys: {:?}", data.keys()));
+        assert!(data.contains_key("value"), "{}", format!("Keys: {:?}", data.keys()));
+        assert!(
+            data.contains_key("resolution"),
+            "{}",
+            format!("Keys: {:?}", data.keys())
+        );
+        assert_eq!(
+            data["timestamp"],
             vec![
-                Data::Resolution("PT60M".to_string()),
-                Data::Resolution("PT60M".to_string())
+                Data::Timestamp("2023-12-31T23:00:00Z".parse().unwrap()),
+                Data::Timestamp("2024-01-01T00:00:00Z".parse().unwrap()),
             ]
+        );
+        assert_eq!(data["value"], vec![Data::F64(104.98), Data::F64(105.98)]);
+        assert_eq!(
+            data["resolution"],
+            vec![Data::String("PT60M".to_string()), Data::String("PT60M".to_string())]
         );
     }
 }
