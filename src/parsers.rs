@@ -150,23 +150,27 @@ mod tests {
         assert!(result.is_ok(), "{}", format!("Error: {:?}", result.err().unwrap()));
 
         let data = result.unwrap();
+        assert!(data.contains_key("timestamp"), "{}", format!("Keys: {:?}", data.keys()));
+        assert!(data.contains_key("value"), "{}", format!("Keys: {:?}", data.keys()));
         assert!(
-            data.contains_key("PT60M_timestamp"),
-            "{}",
-            format!("Keys: {:?}", data.keys())
-        );
-        assert!(
-            data.contains_key("PT60M_value"),
+            data.contains_key("resolution"),
             "{}",
             format!("Keys: {:?}", data.keys())
         );
         assert_eq!(
-            data["PT60M_timestamp"],
+            data["timestamp"],
             vec![
                 Data::Timestamp("2023-12-31T23:00:00Z".parse().unwrap()),
                 Data::Timestamp("2024-01-01T00:00:00Z".parse().unwrap()),
             ]
         );
-        assert_eq!(data["PT60M_value"], vec![Data::F64(104.98), Data::F64(105.98)]);
+        assert_eq!(data["value"], vec![Data::F64(104.98), Data::F64(105.98)]);
+        assert_eq!(
+            data["resolution"],
+            vec![
+                Data::Resolution("PT60M".to_string()),
+                Data::Resolution("PT60M".to_string())
+            ]
+        );
     }
 }
