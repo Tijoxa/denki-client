@@ -8,7 +8,7 @@ from entsoe_client.client import Client
 
 @pytest.fixture
 def client():
-    return Client(os.getenv(("API_KEY_ENTSOE")), backend="polars")
+    return Client(os.environ["API_KEY_ENTSOE"], backend="polars")
 
 
 def test_query_day_ahead_prices(client: Client):

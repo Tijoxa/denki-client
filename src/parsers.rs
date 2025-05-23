@@ -21,6 +21,7 @@ static RESOLUTIONS: LazyLock<HashMap<&'static str, Span>> = LazyLock::new(|| {
 pub enum Data {
     F64(f64),
     Timestamp(Timestamp),
+    Resolution(String),
 }
 
 pub fn parse_timeseries_generic(
@@ -78,12 +79,13 @@ pub fn parse_timeseries_generic(
                             .get(resolution.as_str())
                             .ok_or(anyhow!("Resolution not found"))?;
                         let timestamp = start + *delta * (position - 1);
-                        data.entry(resolution.clone() + "_timestamp")
+                        data.entry("timestamp".to_string())
                             .or_default()
                             .push(Data::Timestamp(timestamp));
-                        data.entry(resolution.clone() + "_value")
+                        data.entry("value".to_string()).or_default().push(Data::F64(*value));
+                        data.entry("resolution".to_string())
                             .or_default()
-                            .push(Data::F64(*value));
+                            .push(Data::Resolution(resolution.clone()));
                     }
                 }
             }
