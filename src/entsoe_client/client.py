@@ -1,12 +1,10 @@
 import logging
-import warnings
 from datetime import datetime
 from types import ModuleType
 from typing import Literal
 
 import httpx
 import narwhals as nw
-from bs4 import XMLParsedAsHTMLWarning
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from entsoe_client._core import parse_timeseries_generic
@@ -14,8 +12,6 @@ from entsoe_client.area import Area
 from entsoe_client.exceptions import raise_response_error
 from entsoe_client.schemas import ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA, DAY_AHEAD_SCHEMA
 from entsoe_client.utils import documents_limited, inclusive, parse_inputs, split_query
-
-warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 
 class Client:
