@@ -5,7 +5,7 @@ import narwhals as nw
 DAY_AHEAD_SCHEMA = nw.Schema(
     {
         "timestamp": nw.Datetime(time_zone=UTC),
-        "value": nw.Float64,
+        "price.amount": nw.Float64,
         "resolution": nw.Enum(["PT60M", "PT30M", "PT15M"]),
     }
 )
@@ -13,9 +13,9 @@ DAY_AHEAD_SCHEMA = nw.Schema(
 ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA = nw.Schema(
     {
         "timestamp": nw.Datetime(time_zone=UTC),
-        "Price": nw.Float64,
-        "Direction": nw.Enum(["Up", "Down"]),
-        "ReserveType": nw.Enum(["FCR", "AFRR", "MFRR", "RR"]),
+        "activation_Price.amount": nw.Float64,
+        "flowDirection.direction": nw.Enum(["A01", "A02"]),
+        "businessType": nw.Enum(["A95", "A96", "A97", "A98"]),
         "resolution": nw.Enum(["PT60M", "PT30M", "PT15M"]),
     }
 )

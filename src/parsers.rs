@@ -17,46 +17,43 @@ static RESOLUTIONS: LazyLock<HashMap<&'static str, Span>> = LazyLock::new(|| {
     ])
 });
 
-#[derive(Debug, PartialEq, IntoPyObject)]
+#[derive(Clone, Debug, PartialEq, IntoPyObject)]
 pub enum Data {
     F64(f64),
+    ISize(isize),
     Timestamp(Timestamp),
     String(String),
 }
 
 pub fn parse_timeseries_generic(
     xml_text: &str,
-    label: &str,
-    period_name: &str,
-) -> Result<HashMap<String, Vec<Data>>, anyhow::Error> {
-    /* TODO: change signature to
-    xml_text: &str,
     labels: Vec<&str>,
     metadata: Vec<&str>,
     period_name: &str,
-
-    where labels are xml tags that we need to fetch inside the `period_name` tag
-    and metadata are xml tags taht we need to fetch after the `TimeSeries` tag
-    */
+) -> Result<HashMap<String, Vec<Data>>, anyhow::Error> {
     let mut data: HashMap<String, Vec<Data>> = HashMap::new();
     let parser = EventReader::from_str(xml_text);
 
     let mut current_period_start: Option<String> = None;
     let mut current_period_resolution: Option<String> = None;
     let mut current_position: Option<i64> = None;
-    let mut current_value: Option<f64> = None;
+    let mut current_label_values: HashMap<String, Data> = HashMap::new();
+    let mut current_metadata_values: HashMap<String, Data> = HashMap::new();
     let mut current_element: Option<String> = None;
 
     for e in parser {
         match e {
             Ok(XmlEvent::StartElement { name, .. }) => {
                 current_element = Some(name.local_name.clone());
+                if name.local_name == "TimeSeries" {
+                    current_metadata_values = HashMap::new();
+                }
                 if name.local_name == period_name {
                     current_period_start = None;
                     current_period_resolution = None;
                 } else if name.local_name == "Point" {
                     current_position = None;
-                    current_value = None;
+                    current_label_values = HashMap::new();
                 }
             }
             Ok(XmlEvent::Characters(text)) => {
@@ -66,18 +63,38 @@ pub fn parse_timeseries_generic(
                     current_period_resolution = Some(text);
                 } else if current_element == Some("position".to_string()) {
                     current_position = Some(text.parse()?);
-                } else if current_element == Some(label.to_string()) {
-                    current_value = Some(text.parse::<f64>()?);
+                } else {
+                    for label in &labels {
+                        if current_element == Some(label.to_string()) {
+                            if let Ok(current_label_value) = text.parse::<isize>() {
+                                current_label_values
+                                    .entry(label.to_string())
+                                    .insert_entry(Data::ISize(current_label_value));
+                            } else if let Ok(current_label_value) = text.parse::<f64>() {
+                                current_label_values
+                                    .entry(label.to_string())
+                                    .insert_entry(Data::F64(current_label_value));
+                            } else {
+                                current_label_values
+                                    .entry(label.to_string())
+                                    .insert_entry(Data::String(text.to_string()));
+                            }
+                        }
+                    }
+                    for metadata_element in &metadata {
+                        if current_element == Some(metadata_element.to_string()) {
+                            current_metadata_values
+                                .entry(metadata_element.to_string())
+                                .insert_entry(Data::String(text.to_string()));
+                        }
+                    }
                 }
             }
             Ok(XmlEvent::EndElement { name }) => {
-                if name.local_name == "Point" {
-                    if let (Some(start), Some(resolution), Some(position), Some(value)) = (
-                        &current_period_start,
-                        &current_period_resolution,
-                        &current_position,
-                        &current_value,
-                    ) {
+                if let (Some(start), Some(resolution), Some(position)) =
+                    (&current_period_start, &current_period_resolution, &current_position)
+                {
+                    if name.local_name == "Point" {
                         let start_iso = if start.ends_with("Z") {
                             start.replace("Z", ":00Z")
                         } else {
@@ -91,7 +108,12 @@ pub fn parse_timeseries_generic(
                         data.entry("timestamp".to_string())
                             .or_default()
                             .push(Data::Timestamp(timestamp));
-                        data.entry("value".to_string()).or_default().push(Data::F64(*value));
+                        for (k, v) in current_label_values.iter() {
+                            data.entry(k.to_string()).or_default().push(v.clone());
+                        }
+                        for (k, v) in current_metadata_values.iter() {
+                            data.entry(k.to_string()).or_default().push(v.clone());
+                        }
                         data.entry("resolution".to_string())
                             .or_default()
                             .push(Data::String(resolution.clone()));
@@ -155,12 +177,16 @@ mod tests {
         </publication_marketdocument>
         "#;
 
-        let result = parse_timeseries_generic(xml_text, "price.amount", "period");
+        let result = parse_timeseries_generic(xml_text, vec!["price.amount"], vec![], "period");
         assert!(result.is_ok(), "{}", format!("Error: {:?}", result.err().unwrap()));
 
         let data = result.unwrap();
         assert!(data.contains_key("timestamp"), "{}", format!("Keys: {:?}", data.keys()));
-        assert!(data.contains_key("value"), "{}", format!("Keys: {:?}", data.keys()));
+        assert!(
+            data.contains_key("price.amount"),
+            "{}",
+            format!("Keys: {:?}", data.keys())
+        );
         assert!(
             data.contains_key("resolution"),
             "{}",
@@ -173,7 +199,7 @@ mod tests {
                 Data::Timestamp("2024-01-01T00:00:00Z".parse().unwrap()),
             ]
         );
-        assert_eq!(data["value"], vec![Data::F64(104.98), Data::F64(105.98)]);
+        assert_eq!(data["price.amount"], vec![Data::F64(104.98), Data::F64(105.98)]);
         assert_eq!(
             data["resolution"],
             vec![Data::String("PT60M".to_string()), Data::String("PT60M".to_string())]
@@ -224,16 +250,35 @@ mod tests {
                     <imbalance_Price.category>A06</imbalance_Price.category>
                 </Point>
             </Period>
-            </TimeSeries>
-            </publication_marketdocument>
-            "#;
+        </TimeSeries>
+        </Balancing_MarketDocument>
+        "#;
 
-        let result = parse_timeseries_generic(xml_text, "activation_Price.amount", "period"); // imbalance_Price.category
+        let result = parse_timeseries_generic(
+            xml_text,
+            vec!["activation_Price.amount"],
+            vec!["flowDirection.direction", "businessType"],
+            "period",
+        );
         assert!(result.is_ok(), "{}", format!("Error: {:?}", result.err().unwrap()));
 
         let data = result.unwrap();
         assert!(data.contains_key("timestamp"), "{}", format!("Keys: {:?}", data.keys()));
-        assert!(data.contains_key("value"), "{}", format!("Keys: {:?}", data.keys()));
+        assert!(
+            data.contains_key("activation_Price.amount"),
+            "{}",
+            format!("Keys: {:?}", data.keys())
+        );
+        assert!(
+            data.contains_key("flowDirection.direction"),
+            "{}",
+            format!("Keys: {:?}", data.keys())
+        );
+        assert!(
+            data.contains_key("businessType"),
+            "{}",
+            format!("Keys: {:?}", data.keys())
+        );
         assert!(
             data.contains_key("resolution"),
             "{}",
@@ -242,14 +287,17 @@ mod tests {
         assert_eq!(
             data["timestamp"],
             vec![
-                Data::Timestamp("2023-12-31T23:00:00Z".parse().unwrap()),
-                Data::Timestamp("2024-01-01T00:00:00Z".parse().unwrap()),
+                Data::Timestamp("2023-09-03T22:00:00Z".parse().unwrap()),
+                Data::Timestamp("2023-09-03T22:30:00Z".parse().unwrap()),
             ]
         );
-        assert_eq!(data["value"], vec![Data::F64(104.98), Data::F64(105.98)]);
+        assert_eq!(
+            data["activation_Price.amount"],
+            vec![Data::F64(116.17), Data::F64(111.17)]
+        );
         assert_eq!(
             data["resolution"],
-            vec![Data::String("PT60M".to_string()), Data::String("PT60M".to_string())]
+            vec![Data::String("PT15M".to_string()), Data::String("PT15M".to_string())]
         );
     }
 }

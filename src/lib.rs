@@ -7,10 +7,14 @@ mod parsers;
 #[pyo3(name = "parse_timeseries_generic")]
 fn parse_timeseries_generic_py(
     xml_text: &str,
-    label: &str,
+    labels: Vec<String>,
+    metadata: Vec<String>,
     period_name: &str,
 ) -> PyResult<HashMap<String, Vec<parsers::Data>>> {
-    parsers::parse_timeseries_generic(xml_text, label, period_name)
+    let labels: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
+    let metadata: Vec<&str> = metadata.iter().map(|s| s.as_str()).collect();
+
+    parsers::parse_timeseries_generic(xml_text, labels, metadata, period_name)
         .map_err(|e| PyErr::new::<PyValueError, _>(e.to_string()))
 }
 

@@ -131,6 +131,7 @@ def split_query(freq: relativedelta | str):
 
             if frames == []:
                 logger.debug("All the data returned are void")
+                return None
 
             df = nw.concat(frames, how="diagonal")
             return df
