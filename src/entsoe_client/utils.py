@@ -6,16 +6,38 @@ from typing import Literal
 import narwhals as nw
 from dateutil.relativedelta import relativedelta
 
-from entsoe_client.parsers import parse_freq
+from entsoe_client.area import Area, lookup_area
+from entsoe_client.parsers import parse_datetime, parse_freq
 
 from .exceptions import NoMatchingDataError, PaginationError
 
 logger = logging.getLogger(__name__)
 
 
+def parse_inputs(func):
+    """Parses function inputs.
+
+    - country_code: `Area` | `str` -> `Area`
+    - start: `datetime` | `str` -> `str`
+    - end: `datetime` | `str` -> `str`
+    """
+
+    @wraps(func)
+    async def parse_inputs_wrapper(
+        self, country_code: Area | str, *args, start: datetime | str, end: datetime | str, **kwargs
+    ):
+        country_code = lookup_area(country_code)
+        start = parse_datetime(start, country_code.tz)
+        end = parse_datetime(end, country_code.tz)
+        return await func(self, country_code, *args, start=start, end=end, **kwargs)
+
+    return parse_inputs_wrapper
+
+
 def paginated(func):
     """Catches a PaginationError, splits the requested period in two and tries
-    again. Finally it concatenates the results."""
+    again. Finally it concatenates the results.
+    """
 
     @wraps(func)
     async def pagination_wrapper(*args, start: datetime, end: datetime, **kwargs):
@@ -38,13 +60,14 @@ def paginated(func):
 
 def documents_limited(n: int = 100):
     """Deals with calls where you cannot query more than n documents at a
-    time, by offsetting per `n` documents.
+    time, by offsetting per `n` documents. Function needs `offset` kwarg.
 
-    :param int n: maximum number of documents to query, defaults to 100"""
+    :param int n: maximum number of documents to query, defaults to 100.
+    """
 
     def decorator(func):
         @wraps(func)
-        async def documents_wrapper(*args, offset: int, **kwargs):
+        async def documents_wrapper(*args, **kwargs):
             frames = []
             for _offset in range(0, 4800 + n, n):
                 try:
@@ -86,12 +109,11 @@ def yield_date_range(start: datetime, end: datetime, freq: relativedelta):
 
 def split_query(freq: relativedelta | str):
     """Deals with calls where you cannot query more than a given frequency,
-    by splitting the call up in blocks.
+    by splitting the call up in blocks. Function needs `start` and `end` kwargs.
 
     :param relativedelta | str freq: split frequency compatible with `parse_freq`
     """
-    freq = parse_freq(freq)
-    freq: relativedelta
+    freq: relativedelta = parse_freq(freq)
 
     def decorator(func):
         @wraps(func)
@@ -109,6 +131,7 @@ def split_query(freq: relativedelta | str):
 
             if frames == []:
                 logger.debug("All the data returned are void")
+                return None
 
             df = nw.concat(frames, how="diagonal")
             return df
@@ -118,11 +141,11 @@ def split_query(freq: relativedelta | str):
     return decorator
 
 
-def inclusive(granularity: relativedelta | str, closed: Literal["both", "left", "right", "neither"] = "left"):
+def inclusive(granularity: relativedelta | str, closed: Literal["both", "left", "right", "neither"]):
     """Truncate `start` and `end` arguments for calls.
 
     :param relativedelta | str granularity:
-    :param Literal["both", "left", "right", "neither"] closed: where the interval is closed, defaults to "left"
+    :param Literal["both", "left", "right", "neither"] closed: where the interval is closed
     """
     granularity = parse_freq(granularity)
     granularity: relativedelta

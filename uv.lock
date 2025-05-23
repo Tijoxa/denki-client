@@ -391,7 +391,6 @@ wheels = [
 name = "entsoe-client"
 source = { editable = "." }
 dependencies = [
-    { name = "beautifulsoup4" },
     { name = "httpx" },
     { name = "narwhals" },
     { name = "python-dateutil" },
@@ -408,7 +407,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "beautifulsoup4", specifier = ">=4.13.4" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "narwhals", specifier = ">=1.39.0" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },

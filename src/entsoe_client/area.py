@@ -17,7 +17,7 @@ def lookup_area(s: Area | str) -> Area:
             if area.value == s:
                 return area
 
-    raise ValueError("Invalid country code.")
+    raise ValueError(f"Invalid country code, got {s=}")
 
 
 class Area(enum.Enum):

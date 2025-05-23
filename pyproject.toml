@@ -6,7 +6,6 @@ readme = "README.md"
 authors = []
 requires-python = ">=3.12"
 dependencies = [
-    "beautifulsoup4>=4.13.4",
     "httpx>=0.28.1",
     "narwhals>=1.39.0",
     "python-dateutil>=2.9.0.post0",
