@@ -77,12 +77,11 @@ def raise_response_error(response: httpx.Response):
                     f"The API is limited to {allowed} elements per request. This query requested {requested} documents."
                 )
         raise e
-    else:
-        """ENTSO-e has changed their server to also respond with 200 if there is no data but all parameters are valid
-        this means we need to check the contents for this error even when status code 200 is returned
-        to prevent parsing the full response do a text matching instead of full parsing
-        also only do this when response type content is text and not for example a zip file."""
-        if response.headers.get("content-type", "") == "application/xml":
-            if "No matching data found" in response.text:
-                raise NoMatchingDataError
-        return response
+    # ENTSO-e has changed their server to also respond with 200 if there is no data but all parameters are valid
+    # this means we need to check the contents for this error even when status code 200 is returned
+    # to prevent parsing the full response do a text matching instead of full parsing
+    # also only do this when response type content is text and not for example a zip file.
+    if response.headers.get("content-type", "") == "application/xml":
+        if "No matching data found" in response.text:
+            raise NoMatchingDataError
+    return response
