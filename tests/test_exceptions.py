@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from entsoe_client.exceptions import (
+from denki_client.exceptions import (
     InvalidBusinessParameterError,
     InvalidPSRTypeError,
     NoMatchingDataError,

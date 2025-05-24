@@ -1,4 +1,4 @@
-# Entsoe-client
+# denki-client
 Python client to retreive data from Entsoe API.
 
 Inspired by [entsoe-py](https://github.com/EnergieID/entsoe-py) repository.

@@ -388,7 +388,7 @@ wheels = [
 ]
 
 [[package]]
-name = "entsoe-client"
+name = "denki-client"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
