@@ -1,5 +1,5 @@
 [project]
-name = "entsoe-client"
+name = "denki-client"
 dynamic = ["version"]
 description = "Agnostic client for ENTSO-e API."
 readme = "README.md"
@@ -20,12 +20,12 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-module-name = "entsoe_client._core"
-python-packages = ["entsoe_rs"]
+module-name = "denki_client._core"
+python-packages = ["denki_rs"]
 python-source = "src"
 
 [tool.maturin.version]
-path = "src/entsoe_client/__init__.py"
+path = "src/denki_client/__init__.py"
 
 [dependency-groups]
 dev = [

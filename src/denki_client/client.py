@@ -7,11 +7,11 @@ import httpx
 import narwhals as nw
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
-from entsoe_client._core import parse_timeseries_generic
-from entsoe_client.area import Area
-from entsoe_client.exceptions import raise_response_error
-from entsoe_client.schemas import ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA, DAY_AHEAD_SCHEMA
-from entsoe_client.utils import documents_limited, inclusive, parse_inputs, split_query
+from denki_client._core import parse_timeseries_generic
+from denki_client.area import Area
+from denki_client.exceptions import raise_response_error
+from denki_client.schemas import ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA, DAY_AHEAD_SCHEMA
+from denki_client.utils import documents_limited, inclusive, parse_inputs, split_query
 
 
 class Client:

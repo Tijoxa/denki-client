@@ -6,8 +6,8 @@ from typing import Literal
 import narwhals as nw
 from dateutil.relativedelta import relativedelta
 
-from entsoe_client.area import Area, lookup_area
-from entsoe_client.parsers import parse_datetime, parse_freq
+from denki_client.area import Area, lookup_area
+from denki_client.parsers import parse_datetime, parse_freq
 
 from .exceptions import NoMatchingDataError, PaginationError
 

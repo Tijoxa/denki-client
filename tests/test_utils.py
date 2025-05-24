@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from entsoe_client.utils import yield_date_range
+from denki_client.utils import yield_date_range
 
 
 @pytest.mark.parametrize(

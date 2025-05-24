@@ -4,7 +4,7 @@ import os
 import narwhals as nw
 import pytest
 
-from entsoe_client.client import Client
+from denki_client.client import Client
 
 
 @pytest.fixture

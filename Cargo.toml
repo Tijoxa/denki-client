@@ -1,13 +1,13 @@
 [package]
-name = "entsoe_client"
+name = "denki_client"
 version = "0.1.0"
 edition = "2021"
-description = "ENTSO-e API client backend"
+description = "Client backend"
 license-file = "LICENSE"
 authors = ["92037181+Tijoxa@users.noreply.github.com"]
-repository = "https://github.com/Tijoxa/entsoe-client"
-documentation = "https://github.com/Tijoxa/entsoe-client#readme"
-homepage = "https://github.com/Tijoxa/entsoe-client"
+repository = "https://github.com/Tijoxa/denki-client"
+documentation = "https://github.com/Tijoxa/denki-client#readme"
+homepage = "https://github.com/Tijoxa/denki-client"
 
 [lib]
 name = "_core"

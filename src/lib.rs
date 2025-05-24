@@ -35,7 +35,7 @@ fn parse_timeseries_generic_py(
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     #[pyfn(m)]
     fn hello_from_bin() -> String {
-        "Hello from entsoe-rs!".to_string()
+        "Hello from denki-rs!".to_string()
     }
 
     m.add_function(wrap_pyfunction!(parse_timeseries_generic_py, m)?)?;
