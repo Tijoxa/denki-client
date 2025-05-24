@@ -3,8 +3,11 @@ name = "entsoe-client"
 dynamic = ["version"]
 description = "Agnostic client for ENTSO-e API."
 readme = "README.md"
-authors = []
+authors = [
+    { name = "Tijoxa", email = "92037181+Tijoxa@users.noreply.github.com" },
+]
 requires-python = ">=3.12"
+license = { file = "LICENSE" }
 dependencies = [
     "httpx>=0.28.1",
     "narwhals>=1.39.0",

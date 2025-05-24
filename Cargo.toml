@@ -2,6 +2,9 @@
 name = "entsoe_client"
 version = "0.1.0"
 edition = "2021"
+description = "ENTSO-e API client backend"
+license-file = "LICENSE"
+authors = ["92037181+Tijoxa@users.noreply.github.com"]
 
 [lib]
 name = "_core"
@@ -13,5 +16,9 @@ anyhow = "1.0.98"
 jiff = "0.2.13"
 # "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
 # "abi3-py310" tells pyo3 (and maturin) to build using the stable ABI with minimum Python version 3.10
-pyo3 = { version = ">=0.23.5", features = ["extension-module", "abi3-py310", "jiff-02"] }
+pyo3 = { version = ">=0.23.5", features = [
+    "extension-module",
+    "abi3-py310",
+    "jiff-02",
+] }
 xml-rs = "0.8.26"
