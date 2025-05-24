@@ -1,5 +1,6 @@
+import re
+
 import httpx
-from bs4 import BeautifulSoup
 
 
 class PaginationError(Exception):
@@ -43,10 +44,12 @@ def raise_response_error(response: httpx.Response):
     try:
         response.raise_for_status()
     except httpx.HTTPError as e:
-        soup = BeautifulSoup(response.text, "html.parser")
-        text = soup.find_all("text")
-        if len(text) > 0:
-            error_text: str = soup.find("text").text
+        error_text = ""
+        text_match = re.search(r"<text>(.*?)</text>", response.text, re.DOTALL)
+        if text_match:
+            error_text = text_match.group(1).strip()
+
+        if error_text:
             if "No matching data found" in error_text:
                 raise NoMatchingDataError
             elif "check you request against dependency tables" in error_text:
@@ -54,20 +57,24 @@ def raise_response_error(response: httpx.Response):
             elif "is not valid for this area" in error_text:
                 raise InvalidPSRTypeError
             elif "amount of requested data exceeds allowed limit" in error_text:
-                requested = error_text.split(" ")[-2]
-                allowed = error_text.split(" ")[-5]
+                numbers = [int(s) for s in error_text.split() if s.isdigit()]
+                if len(numbers) >= 2:
+                    allowed, requested = numbers[-2], numbers[-1]
+                else:
+                    allowed, requested = "unknown", "unknown"
                 raise PaginationError(
-                    f"""The API is limited to {allowed} elements per
-                    request. This query requested for {requested}
-                    documents and cannot be fulfilled as is."""
+                    f"The API is limited to {allowed} elements per request. This query requested {requested} documents."
                 )
             elif "requested data to be gathered via the offset parameter exceeds the allowed limit" in error_text:
-                requested = error_text.split(" ")[-9]
-                allowed = error_text.split(" ")[-30][:-2]
+                numbers = [int(s) for s in error_text.split() if s.isdigit()]
+                if len(numbers) >= 1:
+                    allowed = numbers[0]
+                    requested_match = re.search(r"Requested[^\d]*(\d+)", error_text)
+                    requested = requested_match.group(1) if requested_match else "unknown"
+                else:
+                    allowed, requested = "unknown", "unknown"
                 raise PaginationError(
-                    f"""The API is limited to {allowed} elements per
-                    request. This query requested for {requested}
-                    documents and cannot be fulfilled as is."""
+                    f"The API is limited to {allowed} elements per request. This query requested {requested} documents."
                 )
         raise e
     else:
