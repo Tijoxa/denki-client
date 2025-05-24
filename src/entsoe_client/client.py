@@ -39,8 +39,8 @@ class Client:
         """Base Request.
 
         :param dict params: parameters dictionnary. See documentation for more details.
-        :param str start_str: Pattern yyyyMMddHHmm e.g. 201601010000. Considered timezones is the local one.
-        :param str end_str: Pattern yyyyMMddHHmm e.g. 201601010000 Considered timezones is the local one.
+        :param str start_str: Pattern yyyyMMddHHmm e.g. 201601010000. Considered timezone is the local one.
+        :param str end_str: Pattern yyyyMMddHHmm e.g. 201601010000 Considered timezone is the local one.
         :return httpx.Response:
         """
         base_params = {
@@ -54,6 +54,21 @@ class Client:
         response = await self.session.get(self.base_url, params=params)
         raise_response_error(response)
         return response
+
+    def _prepare_inputs(
+        self, country_code: Area | str, start: datetime | str, end: datetime | str
+    ) -> tuple[str, str, str]:
+        if isinstance(country_code, str):
+            raise TypeError(f"{type(country_code)=} instead of Area. Consider using the `parse_inputs` decorator.")
+
+        if isinstance(start, str) or isinstance(end, str):
+            raise TypeError(
+                f"(type(start), type(end)) = ({type(start)}, {type(end)}) instead of (datetime, datetime). Consider using the `parse_inputs` decorator."
+            )
+
+        start_str = start.strftime("%Y%m%d%H%M")
+        end_str = end.strftime("%Y%m%d%H%M")
+        return country_code.code, start_str, end_str
 
     @parse_inputs
     @split_query("1y")
@@ -75,39 +90,29 @@ class Client:
         - price.amount: in €/MWh
         - resolution
         """
-        if isinstance(country_code, str):
-            raise TypeError(f"{type(country_code)=} instead of Area. Consider using the `parse_inputs` decorator.")
-
-        if isinstance(start, str) or isinstance(end, str):
-            raise TypeError(
-                f"(type(start), type(end)) = ({type(start)}, {type(end)}) instead of (str, str). Consider using the `parse_inputs` decorator."
-            )
+        domain_code, start_str, end_str = self._prepare_inputs(country_code, start, end)
 
         params = {
             "documentType": "A44",
-            "in_Domain": country_code.code,
-            "out_Domain": country_code.code,
+            "in_Domain": domain_code,
+            "out_Domain": domain_code,
             "contract_MarketAgreement.type": "A01",
             "offset": offset,
         }
-
-        start_str = start.strftime("%Y%m%d%H%M")
-        end_str = end.strftime("%Y%m%d%H%M")
         response = await self._base_request(params, start_str, end_str)
-        data_all = parse_timeseries_generic(
+        data = parse_timeseries_generic(
             response.text,
             ["price.amount"],
             [],
             "period",
         )
-        if data_all == {}:
+        if data == {}:
             return None
-        df = nw.from_dict(data_all, DAY_AHEAD_SCHEMA, backend=self.backend)
+        df = nw.from_dict(data, DAY_AHEAD_SCHEMA, backend=self.backend)
         return df
 
     @parse_inputs
     @split_query("1y")
-    @inclusive("1d", "both")
     async def query_activated_balancing_energy_prices(
         self,
         country_code: Area | str,
@@ -143,33 +148,25 @@ class Client:
         - businessType
         - resolution
         """
-        if isinstance(country_code, str):
-            raise TypeError(f"{type(country_code)=} instead of Area. Consider using the `parse_inputs` decorator.")
-
-        if isinstance(start, str) or isinstance(end, str):
-            raise TypeError(
-                f"(type(start), type(end)) = ({type(start)}, {type(end)}) instead of (str, str). Consider using the `parse_inputs` decorator."
-            )
+        domain_code, start_str, end_str = self._prepare_inputs(country_code, start, end)
 
         params = {
             "documentType": "A84",
             "processType": process_type,
-            "controlArea_Domain": country_code.code,
+            "controlArea_Domain": domain_code,
             "businessType": business_type,
             "psrType": None,
             "standardMarketProduct": None,
             "originalMarketProduct": None,
         }
-        start_str = start.strftime("%Y%m%d%H%M")
-        end_str = end.strftime("%Y%m%d%H%M")
         response = await self._base_request(params, start_str, end_str)
-        data_all = parse_timeseries_generic(
+        data = parse_timeseries_generic(
             response.text,
             ["activation_Price.amount"],
             ["flowDirection.direction", "businessType"],
             "period",
         )
-        if data_all == {}:
+        if data == {}:
             return None
-        df = nw.from_dict(data_all, ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA, backend=self.backend)
+        df = nw.from_dict(data, ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA, backend=self.backend)
         return df
