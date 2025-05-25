@@ -2,7 +2,7 @@
 Python client to retreive data from ENTSO-e API.
 
 ## Installation
-Install it from PyPI:
+Install it from [PyPI](https://pypi.org/project/denki-client/):
 
 ```bash
 pip install denki-client
