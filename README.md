@@ -20,8 +20,8 @@ df.to_native()
 ```
 
 ## Features
-- asynchronous client (use of httpx)
-- agnostic DataFrame library (use narwhals)
+- asynchronous client (use of [httpx](https://github.com/encode/httpx))
+- agnostic DataFrame library (use us [narwhals](https://github.com/narwhals-dev/narwhals))
 
 ## References
 Inspired by [entsoe-py](https://github.com/EnergieID/entsoe-py) repository.
