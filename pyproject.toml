@@ -21,7 +21,7 @@ build-backend = "maturin"
 
 [tool.maturin]
 module-name = "denki_client._core"
-python-packages = ["denki_rs"]
+python-packages = ["denki_client"]
 python-source = "src"
 
 [tool.maturin.version]
