@@ -1,16 +1,27 @@
 # denki-client
-Python client to retreive data from Entsoe API.
+Python client to retreive data from ENTSO-e API.
 
-Inspired by [entsoe-py](https://github.com/EnergieID/entsoe-py) repository.
+## Installation
+Install it from PyPI:
+
+```bash
+pip install denki-client
+```
+
+## Usage
+```python
+import asyncio
+from denki_client import EntsoeClient
+
+client = EntsoeClient("API_KEY_ENTSOE", backend="polars")
+
+df = asyncio.run(client.query_day_ahead_prices("FR", start="20250101", end="20250201"))
+df.to_native()
+```
 
 ## Features
-- asynchronous client
-- agnostic DataFrame library
+- asynchronous client (use of httpx)
+- agnostic DataFrame library (use narwhals)
 
-## Dev
-To debug the client:
-```py
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-```
+## References
+Inspired by [entsoe-py](https://github.com/EnergieID/entsoe-py) repository.
