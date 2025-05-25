@@ -14,7 +14,7 @@ from denki_client.schemas import ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA, DAY_A
 from denki_client.utils import documents_limited, inclusive, parse_inputs, split_query
 
 
-class Client:
+class EntsoeClient:
     def __init__(self, api_key: str, backend: ModuleType | nw.Implementation | str, **httpx_client_kwargs) -> None:
         """Client to ENTSO-e API.
 
