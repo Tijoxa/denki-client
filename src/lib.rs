@@ -11,16 +11,6 @@ fn parse_timeseries_generic_py(
     metadata: Vec<String>,
     period_name: &str,
 ) -> PyResult<HashMap<String, Vec<parsers::Data>>> {
-    /* TODO: change labels end metadata types
-     Vec<String> -> HashMap<String, ???>
-     example:
-    {
-        "activation_Price.amount": "activation_price",
-        "flowDirection.direction": "flow_direction", -> encode the map of possible values too for enum
-        "businessType": "business_type",
-        ""
-    }
-    */
     let labels: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
     let metadata: Vec<&str> = metadata.iter().map(|s| s.as_str()).collect();
 
