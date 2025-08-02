@@ -8,9 +8,14 @@ import narwhals as nw
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from denki_client._core import parse_timeseries_generic
-from denki_client.area import Area
+from denki_client.area import Area, BusinessType, FlowDirection, PsrType
 from denki_client.exceptions import raise_response_error
-from denki_client.schemas import ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA, DAY_AHEAD_SCHEMA
+from denki_client.schemas import (
+    ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA,
+    ACTUAL_GENERATION_PER_GENERATION_UNIT,
+    DAY_AHEAD_SCHEMA,
+    INSTALLED_CAPACITY_PER_PRODUCTION_TYPE,
+)
 from denki_client.utils import documents_limited, inclusive, parse_inputs, split_query
 
 
@@ -101,7 +106,7 @@ class EntsoeClient:
         data = parse_timeseries_generic(
             response.text,
             ["price.amount"],
-            [],
+            ["currency_Unit.name", "price_Measure_Unit.name"],
             "period",
         )
         if data == {}:
@@ -114,8 +119,8 @@ class EntsoeClient:
     async def query_activated_balancing_energy_prices(
         self,
         area: Area | str,
-        process_type: Literal["A16", "A60", "A61", "A68", None],
-        business_type: Literal["A95", "A96", "A97", "A98", None],
+        process_type: Literal["A16", "A60", "A61", "A68", None] = None,
+        business_type: Literal["A95", "A96", "A97", "A98", None] = None,
         *,
         start: datetime | str,
         end: datetime | str,
@@ -139,12 +144,7 @@ class EntsoeClient:
         - None: select all
         :param datetime | str start: start of the query
         :param datetime | str end: end of the query
-        :return nw.DataFrame | None: DataFrame with the following columns:
-        - timestamp: in UTC
-        - activation_Price.amount: in €/MWh
-        - flowDirection.direction: Up is A01 and Down is A02
-        - businessType
-        - resolution
+        :return nw.DataFrame | None:
         """
         domain_code, start_str, end_str = self._prepare_inputs(area, start, end)
 
@@ -161,52 +161,157 @@ class EntsoeClient:
         data = parse_timeseries_generic(
             response.text,
             ["activation_Price.amount"],
-            ["flowDirection.direction", "businessType"],
+            ["flowDirection.direction", "businessType", "currency_Unit.name", "price_Measure_Unit.name"],
             "period",
         )
         if data == {}:
             return None
         df = nw.from_dict(data, ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA, backend=self.backend)
+        df = df.with_columns(
+            nw.col("flowDirection.direction").replace_strict(
+                old=FlowDirection._member_names_,
+                new=[key.value for key in FlowDirection],
+            ),
+            nw.col("businessType").replace_strict(
+                old=BusinessType._member_names_,
+                new=[key.value for key in BusinessType],
+            ),
+        )
         return df
 
+    @parse_inputs  # TODO: other limitations
     async def query_installed_capacity_per_production_type(
         self,
         area: Area | str,
-        psr_type: list[
-            Literal[
-                "B01",
-                "B02",
-                "B03",
-                "B04",
-                "B05",
-                "B06",
-                "B07",
-                "B08",
-                "B09",
-                "B10",
-                "B11",
-                "B12",
-                "B13",
-                "B14",
-                "B15",
-                "B16",
-                "B17",
-                "B18",
-                "B19",
-                "B20",
-                "B25",
-            ]
-        ]
-        | None,
+        psr_type: Literal[  # TODO: change entry type?
+            "B01",
+            "B02",
+            "B03",
+            "B04",
+            "B05",
+            "B06",
+            "B07",
+            "B08",
+            "B09",
+            "B10",
+            "B11",
+            "B12",
+            "B13",
+            "B14",
+            "B15",
+            "B16",
+            "B17",
+            "B18",
+            "B19",
+            "B20",
+            "B25",
+            None,
+        ] = None,
         *,
         start: datetime | str,
         end: datetime | str,
     ) -> nw.DataFrame | None:
+        """Query installed capacity per production type.
+
+        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#93160892-f305-43d8-80e7-545535250034`
+
+        :param Area | str area:.
+        :param Literal['B01', 'B02', ..., 'B25', None] psr_type:
+        :param datetime | str start: The start time of the query.
+        :param datetime | str end: The end time of the query.
+        :return nw.DataFrame | None:
+        """
         domain_code, start_str, end_str = self._prepare_inputs(area, start, end)
         params = {
             "documentType": "A68",
             "processType": "A33",
-            "controlArea_Domain": domain_code,
-            "psrType": None,
+            "in_Domain": domain_code,
+            "psrType": psr_type,
         }
         response = await self._base_request(params, start_str, end_str)
+        data = parse_timeseries_generic(
+            response.text,
+            ["quantity"],
+            ["quantity_Measure_Unit.name", "psrType"],
+            "period",
+        )
+        if data == {}:
+            return None
+        df = nw.from_dict(data, INSTALLED_CAPACITY_PER_PRODUCTION_TYPE, backend=self.backend)
+        df = df.with_columns(
+            nw.col("psrType").replace_strict(
+                old=PsrType._member_names_,
+                new=[key.value for key in PsrType],
+            )
+        )
+        return df
+
+    @parse_inputs  # TODO: other limitations
+    async def query_actual_generation_per_production_type(
+        self,
+        area: Area | str,
+        psr_type: Literal[
+            "B01",
+            "B02",
+            "B03",
+            "B04",
+            "B05",
+            "B06",
+            "B07",
+            "B08",
+            "B09",
+            "B10",
+            "B11",
+            "B12",
+            "B13",
+            "B14",
+            "B15",
+            "B16",
+            "B17",
+            "B18",
+            "B19",
+            "B20",
+            "B25",
+            None,
+        ] = None,
+        *,
+        start: datetime | str,
+        end: datetime | str,
+    ) -> nw.DataFrame | None:
+        """Query actual generation per production type.
+
+        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#d4383852-1e53-4f98-a028-e0d9ac73d5f5`
+
+        :param Area | str area:
+        :param Literal['B01', 'B02', ..., 'B25', None] psr_type:
+        :param datetime | str start: The start time of the query.
+        :param datetime | str end: The end time of the query.
+        :return nw.DataFrame | None:
+            - resolution
+        """
+        domain_code, start_str, end_str = self._prepare_inputs(area, start, end)
+        params = {
+            "documentType": "A75",
+            "processType": "A16",
+            "in_Domain": domain_code,
+            "psrType": psr_type,
+        }
+        response = await self._base_request(params, start_str, end_str)
+        data = parse_timeseries_generic(
+            response.text,
+            ["quantity"],
+            ["quantity_Measure_Unit.name", "psrType"],
+            "period",
+        )
+        if data == {}:
+            return None
+        df = nw.from_dict(data, ACTUAL_GENERATION_PER_GENERATION_UNIT, backend=self.backend)
+        df = df.with_columns(
+            nw.col("psrType").replace_strict(
+                old=PsrType._member_names_,
+                new=[key.value for key in PsrType],
+            )
+        )
+        return df
+
+    # TODO: installed capacity per production unit, actual generation per generation unit

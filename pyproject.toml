@@ -30,10 +30,16 @@ path = "src/denki_client/__init__.py"
 [dependency-groups]
 dev = [
     "entsoe-py>=0.6.18",
+    "httpx-limiter>=0.3.0",
     "ipykernel>=6.29.5",
     "polars[all]>=1.29.0",
     "pytest>=8.3.5",
+    "pytest-asyncio>=1.1.0",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--asyncio-mode=auto"
 
 [tool.ruff]
 line-length = 120
