@@ -141,14 +141,14 @@ def split_query(freq: relativedelta | str):
     return decorator
 
 
-def inclusive(granularity: relativedelta | str, closed: Literal["both", "left", "right", "neither"]):
+def inclusive(resolution: relativedelta | str, closed: Literal["both", "left", "right", "neither"]):
     """Truncate `start` and `end` arguments for calls.
 
-    :param relativedelta | str granularity:
+    :param relativedelta | str resolution:
     :param Literal["both", "left", "right", "neither"] closed: where the interval is closed
     """
-    granularity = parse_freq(granularity)
-    granularity: relativedelta
+    resolution = parse_freq(resolution)
+    resolution: relativedelta
 
     def decorator(func):
         @wraps(func)
@@ -159,13 +159,13 @@ def inclusive(granularity: relativedelta | str, closed: Literal["both", "left", 
                     _end = end
                 case "left":
                     _start = start
-                    _end = end - granularity
+                    _end = end - resolution
                 case "right":
-                    _start = start + granularity
+                    _start = start + resolution
                     _end = end
                 case "neither":
-                    _start = start + granularity
-                    _end = end - granularity
+                    _start = start + resolution
+                    _end = end - resolution
             return await func(*args, start=_start, end=_end, **kwargs)
 
         return wrapper
