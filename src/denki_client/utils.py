@@ -17,19 +17,17 @@ logger = logging.getLogger(__name__)
 def parse_inputs(func):
     """Parses function inputs.
 
-    - country_code: `Area` | `str` -> `Area`
+    - area: `Area` | `str` -> `Area`
     - start: `datetime` | `str` -> `str`
     - end: `datetime` | `str` -> `str`
     """
 
     @wraps(func)
-    async def parse_inputs_wrapper(
-        self, country_code: Area | str, *args, start: datetime | str, end: datetime | str, **kwargs
-    ):
-        country_code = lookup_area(country_code)
-        start = parse_datetime(start, country_code.tz)
-        end = parse_datetime(end, country_code.tz)
-        return await func(self, country_code, *args, start=start, end=end, **kwargs)
+    async def parse_inputs_wrapper(self, area: Area | str, *args, start: datetime | str, end: datetime | str, **kwargs):
+        area = lookup_area(area)
+        start = parse_datetime(start, area.tz)
+        end = parse_datetime(end, area.tz)
+        return await func(self, area, *args, start=start, end=end, **kwargs)
 
     return parse_inputs_wrapper
 
