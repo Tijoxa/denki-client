@@ -1,6 +1,6 @@
 [project]
 name = "denki-client"
-dynamic = ["version"]
+version = "0.1.2"
 description = "Agnostic client for ENTSO-e API."
 readme = "README.md"
 authors = [
@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.28.1",
     "narwhals>=1.39.0",
     "python-dateutil>=2.9.0.post0",
+    "pytz>=2025.2",
     "tenacity>=9.1.2",
 ]
 
@@ -24,22 +25,15 @@ module-name = "denki_client._core"
 python-packages = ["denki_client"]
 python-source = "src"
 
-[tool.maturin.version]
-path = "src/denki_client/__init__.py"
-
 [dependency-groups]
 dev = [
-    "entsoe-py>=0.6.18",
-    "httpx-limiter>=0.3.0",
-    "ipykernel>=6.29.5",
-    "polars[all]>=1.29.0",
+    "httpx-limiter>=0.4.0",
     "pytest>=8.3.5",
     "pytest-asyncio>=1.1.0",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-addopts = "--asyncio-mode=auto"
 
 [tool.ruff]
 line-length = 120
