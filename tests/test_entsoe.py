@@ -7,7 +7,7 @@ from httpx_limiter import AsyncRateLimitedTransport, Rate
 from denki_client.entsoe import EntsoeClient
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def client():
     return EntsoeClient(
         os.environ["API_KEY_ENTSOE"],

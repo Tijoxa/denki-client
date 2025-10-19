@@ -315,3 +315,5 @@ class EntsoeClient:
         return df
 
     # TODO: installed capacity per production unit, actual generation per generation unit
+    # installed_generation_capacity
+    # actual load, generation, pv_wind_forecast, activated_balancing_energy
