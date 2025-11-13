@@ -17,19 +17,17 @@ logger = logging.getLogger(__name__)
 def parse_inputs(func):
     """Parses function inputs.
 
-    - country_code: `Area` | `str` -> `Area`
+    - area: `Area` | `str` -> `Area`
     - start: `datetime` | `str` -> `str`
     - end: `datetime` | `str` -> `str`
     """
 
     @wraps(func)
-    async def parse_inputs_wrapper(
-        self, country_code: Area | str, *args, start: datetime | str, end: datetime | str, **kwargs
-    ):
-        country_code = lookup_area(country_code)
-        start = parse_datetime(start, country_code.tz)
-        end = parse_datetime(end, country_code.tz)
-        return await func(self, country_code, *args, start=start, end=end, **kwargs)
+    async def parse_inputs_wrapper(self, area: Area | str, *args, start: datetime | str, end: datetime | str, **kwargs):
+        area = lookup_area(area)
+        start = parse_datetime(start, area.tz)
+        end = parse_datetime(end, area.tz)
+        return await func(self, area, *args, start=start, end=end, **kwargs)
 
     return parse_inputs_wrapper
 
@@ -141,14 +139,14 @@ def split_query(freq: relativedelta | str):
     return decorator
 
 
-def inclusive(granularity: relativedelta | str, closed: Literal["both", "left", "right", "neither"]):
+def inclusive(resolution: relativedelta | str, closed: Literal["both", "left", "right", "neither"]):
     """Truncate `start` and `end` arguments for calls.
 
-    :param relativedelta | str granularity:
+    :param relativedelta | str resolution:
     :param Literal["both", "left", "right", "neither"] closed: where the interval is closed
     """
-    granularity = parse_freq(granularity)
-    granularity: relativedelta
+    resolution = parse_freq(resolution)
+    resolution: relativedelta
 
     def decorator(func):
         @wraps(func)
@@ -159,13 +157,13 @@ def inclusive(granularity: relativedelta | str, closed: Literal["both", "left", 
                     _end = end
                 case "left":
                     _start = start
-                    _end = end - granularity
+                    _end = end - resolution
                 case "right":
-                    _start = start + granularity
+                    _start = start + resolution
                     _end = end
                 case "neither":
-                    _start = start + granularity
-                    _end = end - granularity
+                    _start = start + resolution
+                    _end = end - resolution
             return await func(*args, start=_start, end=_end, **kwargs)
 
         return wrapper

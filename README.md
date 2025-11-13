@@ -2,7 +2,7 @@
 Python client to retreive data from ENTSO-e API.
 
 ## Installation
-Install it from PyPI:
+Install it from [PyPI](https://pypi.org/project/denki-client/):
 
 ```bash
 pip install denki-client
@@ -20,8 +20,8 @@ df.to_native()
 ```
 
 ## Features
-- asynchronous client (use of httpx)
-- agnostic DataFrame library (use narwhals)
+- asynchronous client (use of [httpx](https://github.com/encode/httpx))
+- agnostic DataFrame library (use of [narwhals](https://github.com/narwhals-dev/narwhals))
 
 ## References
 Inspired by [entsoe-py](https://github.com/EnergieID/entsoe-py) repository.

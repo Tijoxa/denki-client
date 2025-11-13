@@ -5,7 +5,7 @@ import enum
 
 def lookup_area(s: Area | str) -> Area:
     if isinstance(s, Area):
-        # If it already is an Area object, we"re happy
+        # If it already is an Area object, we're happy
         return s
     if isinstance(s, str):
         # If it is a "country code" string, we do a lookup
