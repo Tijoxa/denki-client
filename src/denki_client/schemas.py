@@ -14,7 +14,7 @@ DAY_AHEAD_SCHEMA = nw.Schema(
     }
 )
 
-ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA = nw.Schema(
+ACTIVATED_BALANCING_ENERGY_PRICE_SCHEMA = nw.Schema(
     {
         "timestamp": nw.Datetime(time_zone=UTC),
         "activation_Price.amount": nw.Float64(),
@@ -26,10 +26,31 @@ ACTIVATED_BALANCING_ENERGY_PRICES_SCHEMA = nw.Schema(
     }
 )
 
+ACTIVATED_BALANCING_ENERGY_VOLUME_SCHEMA = nw.Schema(
+    {
+        "timestamp": nw.Datetime(time_zone=UTC),
+        "quantity": nw.Float64(),
+        "flowDirection.direction": nw.Enum([key.name for key in FlowDirection]),
+        "businessType": nw.Enum([key.name for key in BusinessType]),
+        "quantity_Measure_Unit.name": nw.Enum(["MWH"]),
+        "resolution": nw.Enum(["PT60M", "PT30M", "PT15M"]),
+    }
+)
+
+ACTUAL_GENERATION_PER_PRODUCTION_TYPE = nw.Schema(
+    {
+        "timestamp": nw.Datetime(time_zone=UTC),
+        "quantity": nw.Float64(),
+        "quantity_Measure_Unit.name": nw.Enum(["MAW"]),
+        "psrType": nw.Enum([key.name for key in PsrType]),
+        "resolution": nw.Enum(["PT60M", "PT30M", "PT15M"]),
+    }
+)
+
 ACTUAL_GENERATION_PER_GENERATION_UNIT = nw.Schema(
     {
         "timestamp": nw.Datetime(time_zone=UTC),
-        "quantity": nw.Int64(),
+        "quantity": nw.Float64(),
         "quantity_Measure_Unit.name": nw.Enum(["MAW"]),
         "psrType": nw.Enum([key.name for key in PsrType]),
         "resolution": nw.Enum(["PT60M", "PT30M", "PT15M"]),
@@ -39,9 +60,20 @@ ACTUAL_GENERATION_PER_GENERATION_UNIT = nw.Schema(
 INSTALLED_CAPACITY_PER_PRODUCTION_TYPE = nw.Schema(
     {
         "timestamp": nw.Datetime(time_zone=UTC),
-        "quantity": nw.Int64(),
+        "quantity": nw.Float64(),
         "quantity_Measure_Unit.name": nw.Enum(["MAW"]),
         "psrType": nw.Enum([key.name for key in PsrType]),
         "resolution": nw.Enum(["P1Y"]),
+    },
+)
+
+INSTALLED_CAPACITY_PER_PRODUCTION_UNIT = nw.Schema(
+    {
+        "timestamp": nw.Datetime(time_zone=UTC),
+        "quantity": nw.Float64(),
+        "quantity_Measure_Unit.name": nw.Enum(["MAW"]),
+        "psrType": nw.Enum([key.name for key in PsrType]),
+        "resolution": nw.Enum(["P1Y"]),
+        "production_unit": nw.String(),
     },
 )

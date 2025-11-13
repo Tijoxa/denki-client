@@ -133,7 +133,7 @@ mod tests {
     use super::{parse_timeseries_generic, Data};
 
     #[test]
-    fn test_parse_timeseries_generic_day_ahead_prices() {
+    fn test_parse_timeseries_generic_day_ahead_price() {
         let xml_text = r#"<?xml version="1.0" encoding="utf-8"?>
         <publication_marketdocument xmlns="urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:3">
         <mRID>bf4445f7e6e04c849b7e0830b906fbde</mRID>
@@ -207,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_timeseries_balancy_energy_prices() {
+    fn test_parse_timeseries_balancy_energy_price() {
         let xml_text = r#"<?xml version="1.0" encoding="utf-8"?>
         <Balancing_MarketDocument xmlns="urn:iec62325.351:tc57wg16:451-6:balancingdocument:4:1">
         <mRID>05e317126b4f46f3bb4af1f0314ca0e7</mRID>
@@ -298,6 +298,107 @@ mod tests {
         assert_eq!(
             data["resolution"],
             vec![Data::String("PT15M".to_string()), Data::String("PT15M".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_parse_timeseries_installed_capacity_per_production_type() {
+        let xml_text = r#"<?xml version="1.0" encoding="UTF-8"?>
+        <GL_MarketDocument xmlns="urn:iec62325.351:tc57wg16:451-6:generationloaddocument:3:0">
+        <mRID>7c96d034d7e34768995d82b8602f4800</mRID>
+        <revisionNumber>1</revisionNumber>
+        <type>A68</type>
+        <process.processType>A33</process.processType>
+        <sender_MarketParticipant.mRID codingScheme="A01">10X1001A1001A450</sender_MarketParticipant.mRID>
+        <sender_MarketParticipant.marketRole.type>A32</sender_MarketParticipant.marketRole.type>
+        <receiver_MarketParticipant.mRID codingScheme="A01">10X1001A1001A450</receiver_MarketParticipant.mRID>
+        <receiver_MarketParticipant.marketRole.type>A33</receiver_MarketParticipant.marketRole.type>
+        <createdDateTime>2023-08-18T16:15:35Z</createdDateTime>
+        <time_Period.timeInterval>
+            <start>2022-12-31T23:00Z</start>
+            <end>2023-12-31T23:00Z</end>
+        </time_Period.timeInterval>
+        <TimeSeries>
+            <mRID>1</mRID>
+            <businessType>A37</businessType>
+            <objectAggregation>A08</objectAggregation>
+            <inBiddingZone_Domain.mRID codingScheme="A01">10YBE----------2</inBiddingZone_Domain.mRID>
+            <quantity_Measure_Unit.name>MAW</quantity_Measure_Unit.name>
+            <curveType>A01</curveType>
+            <MktPSRType>
+                <psrType>B01</psrType>
+            </MktPSRType>
+            <Period>
+                <timeInterval>
+                    <start>2022-12-31T23:00Z</start>
+                    <end>2023-12-31T23:00Z</end>
+                </timeInterval>
+                <resolution>P1Y</resolution>
+                <Point>
+                    <position>1</position>
+                    <quantity>712</quantity>
+                </Point>
+            </Period>
+        </TimeSeries>
+
+        <TimeSeries>
+            <mRID>2</mRID>
+            <businessType>A37</businessType>
+            <objectAggregation>A08</objectAggregation>
+            <inBiddingZone_Domain.mRID codingScheme="A01">10YBE----------2</inBiddingZone_Domain.mRID>
+            <quantity_Measure_Unit.name>MAW</quantity_Measure_Unit.name>
+            <curveType>A01</curveType>
+            <MktPSRType>
+                <psrType>B04</psrType>
+            </MktPSRType>
+            <Period>
+                <timeInterval>
+                    <start>2022-12-31T23:00Z</start>
+                    <end>2023-12-31T23:00Z</end>
+                </timeInterval>
+                <resolution>P1Y</resolution>
+                <Point>
+                    <position>1</position>
+                    <quantity>6915</quantity>
+                </Point>
+            </Period>
+        </TimeSeries>
+        </GL_MarketDocument>
+        "#;
+
+        let result = parse_timeseries_generic(
+            xml_text,
+            vec!["quantity"],
+            vec!["quantity_Measure_Unit.name", "psrType"],
+            "period",
+        );
+        assert!(result.is_ok(), "{}", format!("Error: {:?}", result.err().unwrap()));
+
+        let data = result.unwrap();
+        assert!(data.contains_key("timestamp"), "{}", format!("Keys: {:?}", data.keys()));
+        assert!(data.contains_key("quantity"), "{}", format!("Keys: {:?}", data.keys()));
+        assert!(
+            data.contains_key("quantity_Measure_Unit.name"),
+            "{}",
+            format!("Keys: {:?}", data.keys())
+        );
+        assert!(data.contains_key("psrType"), "{}", format!("Keys: {:?}", data.keys()));
+        assert!(
+            data.contains_key("resolution"),
+            "{}",
+            format!("Keys: {:?}", data.keys())
+        );
+        assert_eq!(
+            data["timestamp"],
+            vec![
+                Data::Timestamp("2022-12-31T23:00:00Z".parse().unwrap()),
+                Data::Timestamp("2022-12-31T23:00:00Z".parse().unwrap()),
+            ]
+        );
+        assert_eq!(data["quantity"], vec![Data::ISize(712), Data::ISize(6915)]);
+        assert_eq!(
+            data["resolution"],
+            vec![Data::String("P1Y".to_string()), Data::String("P1Y".to_string())]
         );
     }
 }
