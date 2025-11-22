@@ -1,6 +1,3 @@
-def hello_from_bin() -> str:
-    """Returns a str from Rust backend."""
-
 def parse_timeseries_generic(
     xml_text: str, labels: list[str], metadata: list[str], period_name: str
 ) -> dict[str, list[str]]:
