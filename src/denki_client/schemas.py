@@ -74,6 +74,5 @@ INSTALLED_CAPACITY_PER_PRODUCTION_UNIT = nw.Schema(
         "quantity_Measure_Unit.name": nw.Enum(["MAW"]),
         "psrType": nw.Enum([key.name for key in PsrType]),
         "resolution": nw.Enum(["P1Y"]),
-        "production_unit": nw.String(),
     },
 )
