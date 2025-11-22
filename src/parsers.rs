@@ -361,6 +361,10 @@ mod tests {
                     <position>1</position>
                     <quantity>6915</quantity>
                 </Point>
+                <Point>
+                    <position>2</position>
+                    <quantity>6913</quantity>
+                </Point>
             </Period>
         </TimeSeries>
         </GL_MarketDocument>
@@ -393,12 +397,20 @@ mod tests {
             vec![
                 Data::Timestamp("2022-12-31T23:00:00Z".parse().unwrap()),
                 Data::Timestamp("2022-12-31T23:00:00Z".parse().unwrap()),
+                Data::Timestamp("2023-12-31T23:00:00Z".parse().unwrap()),
             ]
         );
-        assert_eq!(data["quantity"], vec![Data::ISize(712), Data::ISize(6915)]);
+        assert_eq!(
+            data["quantity"],
+            vec![Data::ISize(712), Data::ISize(6915), Data::ISize(6913)]
+        );
         assert_eq!(
             data["resolution"],
-            vec![Data::String("P1Y".to_string()), Data::String("P1Y".to_string())]
+            vec![
+                Data::String("P1Y".to_string()),
+                Data::String("P1Y".to_string()),
+                Data::String("P1Y".to_string())
+            ]
         );
     }
 }
