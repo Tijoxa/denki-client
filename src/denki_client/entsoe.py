@@ -85,8 +85,6 @@ class EntsoeClient:
     ) -> nw.DataFrame | None:
         """Query day-ahead price.
 
-        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#3b383df0-ada2-49fe-9a50-98b1bb201c6b`
-
         :param  Area | str area:
         :param datetime | str start: start of the query
         :param datetime | str end: end of the query
@@ -128,8 +126,6 @@ class EntsoeClient:
         end: datetime | str,
     ) -> nw.DataFrame | None:
         """Query activated balancing energy price.
-
-        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#c301d91e-53ac-4aca-8e18-f29e9146c4a6`
 
         :param  Area | str area:
         :param Literal['A16', 'A60', 'A61', 'A68', None] process_type:
@@ -193,8 +189,6 @@ class EntsoeClient:
     ) -> nw.DataFrame | None:
         """Query activated balancing energy volume.
 
-        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#c301d91e-53ac-4aca-8e18-f29e9146c4a6`
-
         :param  Area | str area:
         :param Literal['A16', 'A60', 'A61', 'A68', None] process_type:
         - A16: Realised
@@ -256,8 +250,6 @@ class EntsoeClient:
     ) -> nw.DataFrame | None:
         """Query actual generation per production type.
 
-        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#d4383852-1e53-4f98-a028-e0d9ac73d5f5`
-
         :param Area | str area: The area to query data for.
         :param PsrType | str | None psr_type: The type of production unit, defaults to None.
         :param datetime | str start: The start time of the query.
@@ -305,8 +297,6 @@ class EntsoeClient:
         end: datetime | str,
     ) -> nw.DataFrame | None:
         """Query actual generation per generation unit.
-
-        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#6b58f256-a205-4e98-839c-48dd6c9edbc8`
 
         :param Area | str area: The area to query data for.
         :param PsrType | str | None psr_type: The type of production unit, defaults to None.
@@ -357,8 +347,6 @@ class EntsoeClient:
     ) -> nw.DataFrame | None:
         """Query installed capacity per production type.
 
-        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#93160892-f305-43d8-80e7-545535250034`
-
         :param Area | str area: The area to query data for.
         :param PsrType | str | None psr_type: The type of production unit, defaults to None.
         :param datetime | str start: The start time of the query.
@@ -407,8 +395,6 @@ class EntsoeClient:
         offset: int = 0,
     ) -> nw.DataFrame | None:
         """Query installed capacity per production unit.
-
-        API documentation: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6#4fecf207-c921-46a0-b4d0-a4a9aacc90f5`
 
         :param Area | str area: The area to query data for.
         :param PsrType | str | None psr_type: The type of production unit, defaults to None.
