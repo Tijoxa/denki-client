@@ -42,10 +42,10 @@ async def test_query_actual_generation_per_generation_unit(client: EntsoeClient)
 
 
 async def test_query_installed_capacity_per_production_type(client: EntsoeClient):
-    df = await client.query_installed_capacity_per_production_type("FR", "B01", start="20250101", end="20250103")
+    df = await client.query_installed_capacity_per_production_type("FR", "B01", start="20240101", end="20250103")
     assert isinstance(df, nw.DataFrame)
 
 
 async def test_query_installed_capacity_per_production_unit(client: EntsoeClient):
-    df = await client.query_installed_capacity_per_production_unit("FR", "B01", start="20250101", end="20250103")
+    df = await client.query_installed_capacity_per_production_unit("FR", "B01", start="20240101", end="20250103")
     assert isinstance(df, nw.DataFrame)
