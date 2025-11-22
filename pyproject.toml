@@ -1,6 +1,6 @@
 [project]
 name = "denki-client"
-version = "0.2.0"
+version = "0.2.1"
 description = "Agnostic client for ENTSO-e API."
 readme = "README.md"
 authors = [
