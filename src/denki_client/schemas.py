@@ -37,6 +37,15 @@ ACTIVATED_BALANCING_ENERGY_VOLUME_SCHEMA = nw.Schema(
     }
 )
 
+ACTUAL_LOAD = nw.Schema(
+    {
+        "timestamp": nw.Datetime(time_zone=UTC),
+        "quantity": nw.Float64(),
+        "quantity_Measure_Unit.name": nw.Enum(["MAW"]),
+        "resolution": nw.Enum(["PT60M", "PT30M", "PT15M"]),
+    }
+)
+
 ACTUAL_GENERATION_PER_PRODUCTION_TYPE = nw.Schema(
     {
         "timestamp": nw.Datetime(time_zone=UTC),

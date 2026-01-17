@@ -21,6 +21,11 @@ async def test_query_day_ahead_price(client: EntsoeClient):
     assert isinstance(df, nw.DataFrame)
 
 
+async def test_query_load(client: EntsoeClient):
+    df = await client.query_load("FR", start="20250101", end="20250103")
+    assert isinstance(df, nw.DataFrame)
+
+
 async def test_query_activated_balancing_energy_price(client: EntsoeClient):
     df = await client.query_activated_balancing_energy_price("FR", "A16", "A95", start="20250101", end="20250103")
     assert isinstance(df, nw.DataFrame)
