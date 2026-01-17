@@ -257,7 +257,8 @@ class EntsoeClient:
         - timestamp: in UTC
         - quantity: generation in MW
         - quantity_Measure_Unit.name: unit of measurement (MAW)
-        - resolution: time resolution of the data (PT15M, PT30M, PT60M)"""
+        - resolution: time resolution of the data (PT15M, PT30M, PT60M)
+        """
         domain_code, start_str, end_str = self._prepare_inputs(area, start, end)
         params = {
             "documentType": "A65",
