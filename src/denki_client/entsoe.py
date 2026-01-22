@@ -15,6 +15,7 @@ from denki_client.schemas import (
     ACTIVATED_BALANCING_ENERGY_VOLUME_SCHEMA,
     ACTUAL_GENERATION_PER_GENERATION_UNIT,
     ACTUAL_GENERATION_PER_PRODUCTION_TYPE,
+    ACTUAL_LOAD,
     DAY_AHEAD_SCHEMA,
     INSTALLED_CAPACITY_PER_PRODUCTION_TYPE,
     INSTALLED_CAPACITY_PER_PRODUCTION_UNIT,
@@ -236,6 +237,45 @@ class EntsoeClient:
                 new=[key.value for key in BusinessType],
             ),
         )
+        return df
+
+    @parse_inputs
+    @split_query("1y")
+    async def query_load(
+        self,
+        area: Area | str,
+        *,
+        start: datetime | str,
+        end: datetime | str,
+    ) -> nw.DataFrame | None:
+        """Query load.
+
+        :param  Area | str area:
+        :param datetime | str start: start of the query
+        :param datetime | str end: end of the query
+        :return nw.DataFrame | None: DataFrame with the following columns:
+        - timestamp: in UTC
+        - quantity: generation in MW
+        - quantity_Measure_Unit.name: unit of measurement (MAW)
+        - resolution: time resolution of the data (PT15M, PT30M, PT60M)
+        """
+        domain_code, start_str, end_str = self._prepare_inputs(area, start, end)
+        params = {
+            "documentType": "A65",
+            "processType": "A16",
+            "outBiddingZone_Domain": domain_code,
+            "out_Domain": domain_code,
+        }
+        response = await self._base_request(params, start_str, end_str)
+        data = parse_timeseries_generic(
+            response.text,
+            ["quantity"],
+            ["quantity_Measure_Unit.name"],
+            "period",
+        )
+        if data == {}:
+            return None
+        df = nw.from_dict(data, ACTUAL_LOAD, backend=self.backend)
         return df
 
     @parse_inputs

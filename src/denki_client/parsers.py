@@ -32,14 +32,16 @@ def parse_freq(freq: relativedelta | str) -> relativedelta:
     :param relativedelta | str freq: A relativedelta or a string identifying a duration. (eg. 2h13m)
     :return relativedelta:
     """
-    if isinstance(freq, str):
-        regex = re.compile(
-            r"^((?P<years>[\.\d]+?)y)?((?P<months>[\.\d]+?)mo)?((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)?((?P<seconds>[\.\d]+?)s)?$"
+    if isinstance(freq, relativedelta):
+        return freq
+
+    regex = re.compile(
+        r"^((?P<years>[\.\d]+?)y)?((?P<months>[\.\d]+?)mo)?((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)?((?P<seconds>[\.\d]+?)s)?$"
+    )
+    parts = regex.match(freq)
+    if parts is None:
+        raise ParseError(
+            f"Could not parse any time information from '{freq}'. Examples of valid strings: '8h', '2d8h5m20s','2m4s', '1y2mo'"
         )
-        parts = regex.match(freq)
-        if parts is None:
-            raise ParseError(
-                f"Could not parse any time information from '{freq}'. Examples of valid strings: '8h', '2d8h5m20s','2m4s', '1y2mo'"
-            )
-        time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
+    time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
     return relativedelta(**time_params)
