@@ -4,7 +4,7 @@ Le catalogue recense les 77 requêtes de la collection ENTSO‑E, dont 76 GET et
 
 ## Vérifications restantes
 
-- Confirmer l’accès aux archives A83 dans la File Library avec son jeton dédié. La projection du format historique est couverte par un exemple XML officiel versionné. [Archives ENTSO‑E](https://transparencyplatform.zendesk.com/hc/en-us/articles/41986091964305-Archives-for-legacy-Transparency-Platform-publications)
+- Confirmer en ligne le listage et le téléchargement d’une archive A83 avec `ENTSOE_FILE_LIBRARY_TOKEN` et `uv run pytest tests/entsoe/test_file_library.py -m live`. Le client implémente les deux appels, couverts par un test hors ligne. La projection du format historique est couverte par un exemple XML officiel versionné. [Archives ENTSO‑E](https://transparencyplatform.zendesk.com/hc/en-us/articles/41986091964305-Archives-for-legacy-Transparency-Platform-publications)
 
 ## Compatibilité avec entsoe-py
 

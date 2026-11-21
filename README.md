@@ -72,7 +72,29 @@ Use `query_day_ahead_prices` for day-ahead prices and `query_installed_generatio
 
 ### Historical activated balancing energy
 
-`query_activated_balancing_energy` implements the historical A83 request. ENTSO-E discontinued this publication on 11 December 2025 and lists it under `TP_Legacy_Publications/ActivatedBalancingEnergy_17.1.E_r2` in the File Library. File Library downloads require their own bearer token. For recent data, use `query_aggregated_balancing_energy_bids` or `query_aggregated_bids` (R53), which return aggregated bid rows with their own filters. [ENTSO-E archive notice](https://transparencyplatform.zendesk.com/hc/en-us/articles/41986091964305-Archives-for-legacy-Transparency-Platform-publications) · [File Library guide](https://transparencyplatform.zendesk.com/hc/en-us/articles/35960137882129-File-Library-Guide)
+`query_activated_balancing_energy` implements the historical A83 REST request. ENTSO-E discontinued this publication on 11 December 2025 and keeps the extracts under `TP_Legacy_Publications/ActivatedBalancingEnergy_17.1.E_r2` in the File Library. For recent data, use `query_aggregated_balancing_energy_bids` or `query_aggregated_bids` (R53). [ENTSO-E archive notice](https://transparencyplatform.zendesk.com/hc/en-us/articles/41986091964305-Archives-for-legacy-Transparency-Platform-publications)
+
+Use a File Library bearer token to list the extracts by filename and download one as ZIP bytes. [File Library guide](https://transparencyplatform.zendesk.com/hc/en-us/articles/35960137882129-File-Library-Guide)
+
+```python
+import asyncio
+import os
+from pathlib import Path
+
+from denki_client import EntsoeClient
+
+async def main():
+    client = EntsoeClient(os.environ.get("API_KEY_ENTSOE", ""))
+    token = os.environ["ENTSOE_FILE_LIBRARY_TOKEN"]
+    async with client.session:
+        files = await client.list_activated_balancing_energy_archives(file_library_token=token)
+        if files:
+            file_id = next(iter(files.values()))
+            archive = await client.download_activated_balancing_energy_archive(file_id, file_library_token=token)
+            Path("activated-balancing-energy.zip").write_bytes(archive)
+
+asyncio.run(main())
+```
 
 ## Tests
 
@@ -81,7 +103,9 @@ uv run pytest -m "not live"
 uv run pytest -m live
 ```
 
-Set `API_KEY_ENTSOE` for the `live` tests. Hishel stores raw XML and ZIP responses in the local pytest cache, so subsequent runs exercise the decoder and Polars projection from those responses. The API key is added at the network boundary and stays out of the cache. [Hishel HTTPX2 integration](https://hishel.com/httpx.html)
+Set `API_KEY_ENTSOE` for the REST API live tests. Hishel stores raw XML and ZIP responses in the local pytest cache, so subsequent runs exercise the decoder and Polars projection from those responses. The API key is added at the network boundary and stays out of the cache. [Hishel HTTPX2 integration](https://hishel.com/httpx.html)
+
+Set `ENTSOE_FILE_LIBRARY_TOKEN` to a current File Library bearer token and run `uv run pytest tests/entsoe/test_file_library.py -m live` to verify an A83 archive download against ENTSO-E.
 
 ## Release wheels
 

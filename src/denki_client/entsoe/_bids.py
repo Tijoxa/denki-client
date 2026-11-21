@@ -333,10 +333,9 @@ class BidQueries(_Transport):
     ) -> pl.DataFrame | None:
         """Query historical activated balancing energy quantities (A83).
 
-        ENTSO-E ended A83 publication on 11 December 2025. This query keeps the
-        historical REST API contract. The separate File Library archives
-        require their own retrieval path. Recent activations use R53, with a
-        different grain and set of filters.
+        ENTSO-E ended A83 publication on 11 December 2025. Use
+        `list_activated_balancing_energy_archives` to find File Library extracts.
+        Recent activations use R53, with a different grain and set of filters.
         """
         return await self._query(
             "A83",

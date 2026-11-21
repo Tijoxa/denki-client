@@ -271,8 +271,8 @@ class _Transport:
         wait=wait_fixed(2),
         reraise=True,
     )
-    async def _send(self, request: httpx2.Request) -> httpx2.Response:
-        return await self.session.send(request)
+    async def _send(self, request: httpx2.Request, **send_kwargs) -> httpx2.Response:
+        return await self.session.send(request, **send_kwargs)
 
     async def _request(self, params: WireParams, request_mode: RequestMode = "get") -> _Response:
         params = {key: value for key, value in params.items() if value is not None}
