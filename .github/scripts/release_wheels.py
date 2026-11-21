@@ -1,4 +1,4 @@
-"""Publish the wheels from one workflow run as GitHub Release assets."""
+"""Validate release wheels and publish GitHub Release assets."""
 
 import json
 import os
@@ -25,7 +25,7 @@ def release_for_tag(repository: str, tag: str) -> dict | None:
 def wheel_assets(project: dict) -> list[Path]:
     name, version = project["name"], project["version"]
     prefix = f"{name.replace('-', '_')}-{version}-"
-    wheels = sorted(Path("dist").glob(f"{prefix}*.whl"))
+    wheels = sorted(Path("dist").glob("*.whl"))
     platforms = [wheel.stem.rsplit("-", 1)[-1] for wheel in wheels]
     if len(wheels) != len(PLATFORMS) or any(
         sum(fnmatchcase(platform, pattern) for platform in platforms) != 1 for pattern in PLATFORMS
@@ -33,6 +33,8 @@ def wheel_assets(project: dict) -> list[Path]:
         raise ValueError(f"Expected one wheel for each release platform: {wheels}")
 
     for wheel in wheels:
+        if not wheel.name.startswith(prefix):
+            raise ValueError(f"Unexpected wheel filename: {wheel}")
         with ZipFile(wheel) as archive:
             metadata_name = f"{name.replace('-', '_')}-{version}.dist-info/METADATA"
             metadata = message_from_bytes(archive.read(metadata_name))
@@ -83,14 +85,20 @@ def publish(repository: str, tag: str, release: dict | None, project: dict) -> N
 
 
 def main() -> None:
-    if sys.argv[1:] not in (["plan"], ["publish"]):
-        sys.exit("Usage: release_wheels.py plan|publish")
+    if len(sys.argv) != 2 or sys.argv[1] not in {"plan", "publish", "validate"}:
+        sys.exit("Usage: release_wheels.py plan|publish|validate")
+
+    command = sys.argv[1]
+    project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
+    if command == "validate":
+        for wheel in wheel_assets(project):
+            print(f"Validated {wheel.name}")
+        return
 
     repository = os.environ["GITHUB_REPOSITORY"]
-    project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
     tag = f"{project['name']}-v{project['version']}"
     release = release_for_tag(repository, tag)
-    if sys.argv[1] == "plan":
+    if command == "plan":
         build = "true" if release is None or release["draft"] else "false"
         with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
             print(f"build={build}", file=output)

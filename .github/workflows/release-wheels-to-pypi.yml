@@ -1,0 +1,49 @@
+name: Release Python wheels to PyPI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-python-wheels-to-pypi
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/build-wheels.yml
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+      - name: Validate the release wheels
+        run: python .github/scripts/release_wheels.py validate
+      - name: Publish wheels to PyPI
+        shell: bash
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_KEY_DENKI_CLIENT }}
+        run: |
+          if [[ -z "$UV_PUBLISH_TOKEN" ]]; then
+            echo "::error::The PYPI_API_KEY_DENKI_CLIENT repository secret is missing or empty."
+            exit 1
+          fi
+          uv publish --trusted-publishing never \
+            --publish-url https://upload.pypi.org/legacy/ \
+            --check-url https://pypi.org/simple/ dist/*.whl

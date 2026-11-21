@@ -42,5 +42,7 @@ Use an HTTPX2 transport if you pass a custom `transport=` to `EntsoeClient`.
 
 Run **Release Python wheels** manually on `main` in GitHub Actions. The workflow tests and uploads wheels as run artifacts, then publishes them to a GitHub Release for the version in `pyproject.toml`.
 
+Run **Release Python wheels to PyPI** manually on `main` to build, test, and publish the four wheels to PyPI with `uv publish`. The publish step uses the `PYPI_API_KEY_DENKI_CLIENT` repository secret.
+
 ## References
 Inspired by [entsoe-py](https://github.com/EnergieID/entsoe-py) repository.
