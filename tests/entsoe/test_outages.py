@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from io import BytesIO
 from zipfile import ZipFile
 
@@ -165,7 +165,7 @@ def zipped_document(document_type: str) -> bytes:
         ),
         (
             "query_production_and_generation_units",
-            ("FR", datetime(2025, 1, 1, tzinfo=UTC)),
+            ("FR", date(2025, 1, 1)),
             {"psr_type": "B16"},
             "A95",
             {
@@ -236,3 +236,37 @@ async def test_reference_date_accepts_date_only_format():
     assert requests[0].url.params["Implementation_DateAndOrTime"] == "2025-01-01"
     assert "periodStart" not in requests[0].url.params
     assert "periodEnd" not in requests[0].url.params
+
+
+async def test_update_window_splits_without_changing_publication_bounds():
+    requests = []
+
+    def handler(request):
+        requests.append(request.url.params)
+        return httpx2.Response(200, content=market_document("B47"))
+
+    client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
+    async with client.session:
+        await client.query_other_market_information(
+            "FR",
+            "2024-01-01",
+            "2025-03-01",
+            periodstartupdate="2024-01-03T10:42+01:00",
+            periodendupdate="2025-01-04T12:30Z",
+        )
+
+    assert [(params["PeriodStartUpdate"], params["PeriodEndUpdate"]) for params in requests] == [
+        ("202401030942", "202501030942"),
+        ("202501030942", "202501041230"),
+    ]
+    assert {(params["periodStart"], params["periodEnd"]) for params in requests} == {("202312312300", "202502282300")}
+
+
+async def test_reference_date_rejects_a_timestamp():
+    def handler(_):
+        pytest.fail("A timestamp reached the transport for a reference date")
+
+    client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
+    async with client.session:
+        with pytest.raises(TypeError, match="implementation_date_and_or_time must be a date"):
+            await client.query_production_and_generation_units("FR", datetime(2025, 1, 1, 23, tzinfo=UTC))

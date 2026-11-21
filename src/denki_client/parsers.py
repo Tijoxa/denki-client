@@ -1,10 +1,19 @@
 import re
-from datetime import UTC, datetime, tzinfo
+from datetime import UTC, date, datetime, tzinfo
 
 from dateutil.relativedelta import relativedelta
 from pytz import timezone
 
 from .exceptions import ParseError, TzNaiveError
+
+
+def parse_date(value: date | str, *, name: str = "value") -> date:
+    """Parse a civil date supplied as a date object or ISO string."""
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    if not isinstance(value, date) or isinstance(value, datetime):
+        raise TypeError(f"{name} must be a date or ISO date string")
+    return value
 
 
 def parse_datetime(date: datetime | str, target_tz: tzinfo | str = UTC) -> datetime:
@@ -13,7 +22,7 @@ def parse_datetime(date: datetime | str, target_tz: tzinfo | str = UTC) -> datet
     :param datetime | str date: datetime to parse. If datetime, must be tz-aware
     :param tzinfo target_tz: target timezone, defaults to UTC
     :raises TzNaiveError:
-    :return datetime: Datetime in format yyyyMMddHHmm
+    :return datetime: Timezone-aware datetime in the target timezone
     """
     if isinstance(target_tz, str):
         target_tz = timezone(target_tz)
@@ -32,14 +41,15 @@ def parse_freq(freq: relativedelta | str) -> relativedelta:
     :param relativedelta | str freq: A relativedelta or a string identifying a duration. (eg. 2h13m)
     :return relativedelta:
     """
-    if isinstance(freq, str):
-        regex = re.compile(
-            r"^((?P<years>[\.\d]+?)y)?((?P<months>[\.\d]+?)mo)?((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)?((?P<seconds>[\.\d]+?)s)?$"
+    if isinstance(freq, relativedelta):
+        return freq
+    regex = re.compile(
+        r"^((?P<years>[\.\d]+?)y)?((?P<months>[\.\d]+?)mo)?((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)?((?P<seconds>[\.\d]+?)s)?$"
+    )
+    parts = regex.match(freq)
+    if parts is None:
+        raise ParseError(
+            f"Could not parse any time information from '{freq}'. Examples of valid strings: '8h', '2d8h5m20s','2m4s', '1y2mo'"
         )
-        parts = regex.match(freq)
-        if parts is None:
-            raise ParseError(
-                f"Could not parse any time information from '{freq}'. Examples of valid strings: '8h', '2d8h5m20s','2m4s', '1y2mo'"
-            )
-        time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
+    time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
     return relativedelta(**time_params)

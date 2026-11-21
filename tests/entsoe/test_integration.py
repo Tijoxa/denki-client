@@ -59,7 +59,7 @@ class _TokenBoundaryTransport(httpx2.AsyncBaseTransport):
 
 @pytest.fixture(scope="session")
 async def live_context(pytestconfig: pytest.Config) -> AsyncIterator[tuple[EntsoeClient, _TokenBoundaryTransport]]:
-    api_key = os.environ.get("API_KEY_ENTSOE")
+    api_key = os.environ.get("API_KEY_ENTSOE", "")
     if not api_key:
         pytest.skip("API_KEY_ENTSOE is required for live ENTSO-E tests")
 
@@ -73,7 +73,7 @@ async def live_context(pytestconfig: pytest.Config) -> AsyncIterator[tuple[Entso
         next_transport=network_transport,
         storage=AsyncSqliteStorage(database_path=database_path),
     )
-    client = EntsoeClient(_CACHE_API_KEY, transport=cache_transport)
+    client = EntsoeClient(_CACHE_API_KEY, transport=cache_transport, timeout=30)
     try:
         async with client.session:
             yield client, network_transport

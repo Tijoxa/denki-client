@@ -94,9 +94,11 @@ async def test_http_error_has_status_and_redacted_request():
     async with client.session:
         with pytest.raises(httpx2.HTTPStatusError) as exc:
             await client.query_load("FR", START, END)
-    assert exc.value.response.status_code == 502
-    assert exc.value.request.url.params.get("documentType") == "A65"
-    assert exc.value.request.url.params.get("securityToken") is None
+    error = exc.value
+    assert isinstance(error, httpx2.HTTPStatusError)
+    assert error.response.status_code == 502
+    assert error.request.url.params.get("documentType") == "A65"
+    assert error.request.url.params.get("securityToken") is None
 
 
 async def test_archive_pagination_counts_immediate_zips_before_rows():
@@ -132,16 +134,16 @@ async def test_publication_window_bisected_on_pagination_error():
         params = request.url.params
         windows.append((params["periodStart"], params["periodEnd"]))
         if len(windows) == 1:
-            return httpx2.Response(400, content=acknowledgement("Amount of requested data exceeds allowed limit"))
+            return httpx2.Response(400, content=acknowledgement("Requested date range exceeds permitted limit"))
         return httpx2.Response(200, content=document(len(windows)))
 
     client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
     async with client.session:
-        result = await client.query_load("FR", START, END)
+        result = await client.query_load("FR", date(2025, 3, 30), date(2025, 4, 1))
     assert windows == [
-        ("202412312300", "202501022300"),
-        ("202412312300", "202501012300"),
-        ("202501012300", "202501022300"),
+        ("202503292300", "202503312200"),
+        ("202503292300", "202503302200"),
+        ("202503302200", "202503312200"),
     ]
     assert result is not None
     assert result["quantity"].to_list() == [2.0, 3.0]
@@ -157,8 +159,96 @@ async def test_full_page_at_maximum_offset_stops_before_out_of_range_request():
     client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
     async with client.session:
         with pytest.raises(PaginationError, match="maximum offset of 4800"):
-            await client._query("A37", START, date(2025, 1, 2), page_size=1, offset=4800)
-    assert set(offsets) == {"4800"}
+            await client._query("A37", START, END, page_size=1, offset=4800)
+    assert offsets == ["4800"]
+
+
+async def test_automatic_pagination_restarts_saturated_window_on_smaller_blocks(monkeypatch):
+    monkeypatch.setattr("denki_client.entsoe._transport._MAX_OFFSET", 2)
+    requests = []
+
+    def handler(request):
+        params = request.url.params
+        start, end, offset = (params[key] for key in ("periodStart", "periodEnd", "offset"))
+        requests.append((start, end, offset))
+        if (start, end) == ("202501010000", "202501030000"):
+            return httpx2.Response(200, content=zipped(**{"one.xml": document(1), "two.xml": document(2)}))
+        if start == "202501010000":
+            return httpx2.Response(400, content=acknowledgement("No matching data found"))
+        return httpx2.Response(200, content=zipped(**{"three.xml": document(3)}))
+
+    client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
+    async with client.session:
+        frame = await client._query("A37", START, END, page_size=2, page_unit="documents", offset=0)
+
+    assert requests == [
+        ("202501010000", "202501030000", "0"),
+        ("202501010000", "202501030000", "2"),
+        ("202501010000", "202501020000", "0"),
+        ("202501020000", "202501030000", "0"),
+    ]
+    assert frame is not None
+    assert frame["quantity"].to_list() == [3.0]
+
+
+async def test_full_day_publication_does_not_retry_at_subday_granularity():
+    requests = []
+
+    def handler(request):
+        requests.append(request.url.params["periodStart"])
+        return httpx2.Response(400, content=acknowledgement("More than 100 matching documents"))
+
+    client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
+    async with client.session:
+        with pytest.raises(PaginationError, match="More than 100 matching documents"):
+            await client.query_day_ahead_prices("FR", START, date(2025, 1, 2))
+    assert requests == ["202412312300"]
+
+
+async def test_saturated_update_window_stops_at_one_minute():
+    windows = []
+
+    def handler(request):
+        params = request.url.params
+        windows.append((params["PeriodStartUpdate"], params["PeriodEndUpdate"]))
+        return httpx2.Response(400, content=acknowledgement("Amount of requested data exceeds allowed limit"))
+
+    client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
+    async with client.session:
+        with pytest.raises(PaginationError, match="exceeds allowed limit"):
+            await client.query_other_market_information(
+                "FR", periodstartupdate="2025-01-01T09:42Z", periodendupdate="2025-01-01T09:45Z"
+            )
+    assert windows == [("202501010942", "202501010945"), ("202501010942", "202501010943")]
+
+
+async def test_split_results_preserve_revisions_and_multiplicity_across_windows():
+    original = document(1, period_start="2024-12-31T00:00Z", period_end="2024-12-31T01:00Z")
+    revised = original.replace(b"<revisionNumber>1", b"<revisionNumber>2")
+    sibling = document(2)
+
+    def handler(request):
+        if request.url.params["periodStart"] == "202501010000":
+            body = zipped(**{"first.xml": original, "second.xml": original})
+        else:
+            body = zipped(**{"renamed.xml": original, "revised.xml": revised, "new.xml": sibling})
+        return httpx2.Response(200, content=body)
+
+    client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
+    async with client.session:
+        large = await client._query("A37", START, END, max_window="1d")
+        first = await client._query("A37", START, date(2025, 1, 2), max_window="1d")
+        second = await client._query("A37", date(2025, 1, 2), END, max_window="1d")
+
+    assert large is not None and first is not None and second is not None
+    assert large.head(first.height).equals(first)
+    assert large.tail(second.height - 1).equals(second.slice(1))
+    assert large.select("document_revisionNumber", "quantity", "document_name").rows() == [
+        ("1", 1.0, "first.xml"),
+        ("1", 1.0, "second.xml"),
+        ("2", 1.0, "revised.xml"),
+        ("1", 2.0, "new.xml"),
+    ]
 
 
 async def test_crossborder_composition_respects_direction_and_aligns_neighbours():
@@ -211,5 +301,5 @@ async def test_publication_window_requires_dates():
 
     client = EntsoeClient(TOKEN, transport=httpx2.MockTransport(handler))
     async with client.session:
-        with pytest.raises(TypeError, match="must be dates"):
+        with pytest.raises(TypeError, match="must be a date"):
             await client.query_load("FR", datetime(2025, 1, 1, 12, tzinfo=UTC), END)

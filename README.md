@@ -48,6 +48,10 @@ The [request catalogue](plan.md#catalogue-des-requêtes) lists the 77 ENTSO-E re
 
 Methods accept an `Area`, an area name such as `"FR"`, or an EIC. Pass `datetime.date` values or ISO date strings such as `"2025-01-01"` for `start` and `end`. Both bounds are local midnights and `end` is exclusive. Directed queries use the origin’s timezone. All-border queries use the selected country’s timezone for every border. Queries without a known area use UTC. The client converts these bounds to UTC for ENTSO-E and accounts for daylight saving time when splitting a request.
 
+`query_production_and_generation_units` takes a civil date or ISO date string for `implementation_date_and_or_time`. The update filters `periodstartupdate` and `periodendupdate` accept timestamps at minute precision.
+
+The client paginates each request window independently. If a window exceeds ENTSO-E's limits with the default offset, the client retries smaller windows, using local midnight when available for publication dates. For allocations and prices that return whole delivery days, the smallest publication window is one local day. A nonzero `offset` applies independently to each initial window and a saturated window raises `PaginationError`. The client retains full published intervals and merges identical rows across windows while preserving source revisions and repeated rows within a window. For price data, the first copy supplies the response document ID and creation time. [ENTSO-E response periods](https://transparencyplatform.zendesk.com/hc/en-us/articles/12786736668180-Response-Time-Period-3)
+
 ### Polars results
 
 Queries return a `pl.DataFrame`, or `None` when ENTSO-E reports no matching data. Point rows carry their document, series and period metadata, including source units and currencies. Timestamps are UTC. On A03 curves, `timestamp` and `timestamp_end` bound a block, so a long block occupies one row. Additional XML fields are available in `xml_extra`, a `List(Struct)` of qualified paths, positions, values and attributes.

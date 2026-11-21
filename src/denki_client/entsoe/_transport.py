@@ -2,12 +2,12 @@
 
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from enum import Enum
 from io import BytesIO
-from typing import ClassVar, Literal
+from typing import ClassVar, Literal, NamedTuple
 from urllib.parse import quote, quote_plus
 from uuid import uuid4
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -28,10 +28,10 @@ from denki_client.exceptions import (
     PaginationError,
     ParseError,
 )
-from denki_client.parsers import parse_datetime, parse_freq
+from denki_client.parsers import parse_date, parse_datetime, parse_freq
 from denki_client.utils import yield_date_range
 
-from ._projection import project_documents
+from ._projection import merge_window_results, project_documents
 
 RequestMode = Literal["get", "get_header", "post"]
 PageUnit = Literal["series", "documents", "archives"]
@@ -107,16 +107,30 @@ def _area_timezone(params: WireParams, calendar_area: Area | None) -> tzinfo:
     return UTC
 
 
-def _date(value: DateInput) -> date:
-    if isinstance(value, str):
-        return date.fromisoformat(value)
-    if not isinstance(value, date) or isinstance(value, datetime):
-        raise TypeError("start and end must be dates or ISO date strings")
-    return value
+def _local_midnights(window: tuple[date, date], zone: tzinfo) -> tuple[datetime, datetime]:
+    start, end = window
+    return datetime.combine(start, time.min, zone), datetime.combine(end, time.min, zone)
 
 
 def _utc_wire_time(value: datetime) -> str:
     return value.astimezone(UTC).strftime("%Y%m%d%H%M")
+
+
+def _split_point(
+    start: datetime, end: datetime, publication_zone: tzinfo | None, allow_subday: bool
+) -> datetime | None:
+    if publication_zone is not None:
+        first_day = start.astimezone(publication_zone).date()
+        last_day = end.astimezone(publication_zone).date()
+        middle_day = first_day + timedelta(days=((last_day - first_day).days + 1) // 2)
+        midnight = datetime.combine(middle_day, time.min, publication_zone).astimezone(UTC)
+        if start < midnight < end:
+            return midnight
+        if not allow_subday:
+            return None
+    if end - start >= timedelta(minutes=2):
+        return (start + (end - start) / 2).replace(second=0, microsecond=0)
+    return None
 
 
 def _status_request(params: WireParams) -> bytes:
@@ -164,6 +178,13 @@ class _Response:
                 for child in document.root["children"]
             )
         return len(self.documents)
+
+
+class _Pagination(NamedTuple):
+    page_size: int | None
+    page_unit: PageUnit
+    offset_key: str
+    max_units: int | None
 
 
 def _decode(content: bytes, name: str | None = None) -> _Response:
@@ -217,7 +238,12 @@ def _reason_error(message: str) -> type[Exception] | None:
         return InvalidBusinessParameterError
     if "is not valid for this area" in text:
         return InvalidPSRTypeError
-    if "exceeds the allowed limit" in text or "exceeds allowed limit" in text:
+    if (
+        "exceeds the allowed limit" in text
+        or "exceeds allowed limit" in text
+        or "date range exceeds permitted limit" in text
+        or re.search(r"more than \d+ matching documents", text)
+    ):
         return PaginationError
     return None
 
@@ -348,6 +374,7 @@ class _Transport:
         document_key: str = "documentType",
         update_start: DateTimeInput | None = None,
         update_end: DateTimeInput | None = None,
+        allow_subday: bool = True,
         **http_params: WireValue,
     ) -> pl.DataFrame | None:
         if request_mode not in ("get", "get_header", "post"):
@@ -360,35 +387,44 @@ class _Transport:
         if offset is not None:
             params[offset_key] = offset
 
-        window = self._publication_window(start, end, _area_timezone(params, calendar_area))
+        publication = self._publication_dates(start, end)
         update = self._update_window(update_start, update_end)
-        if window and update:
-            params[start_key], params[end_key] = map(_utc_wire_time, window)
-        effective_window = update or window
-        keys = ("PeriodStartUpdate", "PeriodEndUpdate") if update else (start_key, end_key)
-        windows = (
-            yield_date_range(*effective_window, parse_freq(max_window))
-            if effective_window and max_window
-            else (effective_window,)
-        )
-        pagination = (page_size, page_unit, offset_key, max_units)
-        documents = []
+        frequency = parse_freq(max_window) if max_window else None
+        zone = _area_timezone(params, calendar_area)
+        keys = (start_key, end_key)
+        windows: Iterable[tuple[datetime, datetime] | None]
+        if update is not None:
+            if publication is not None:
+                params[start_key], params[end_key] = map(_utc_wire_time, _local_midnights(publication, zone))
+            keys = ("PeriodStartUpdate", "PeriodEndUpdate")
+            windows = yield_date_range(update[0], update[1], frequency) if frequency is not None else (update,)
+        elif publication is not None:
+            blocks = (
+                yield_date_range(publication[0], publication[1], frequency) if frequency is not None else (publication,)
+            )
+            windows = (_local_midnights(block, zone) for block in blocks)
+        else:
+            windows = (None,)
+        pagination = _Pagination(page_size, page_unit, offset_key, max_units)
+        publication_zone = zone if publication is not None and update is None else None
+        frames = []
         for block in windows:
-            documents.extend(await self._query_window(params, block, keys, request_mode, pagination))
-        return project_documents([(document.name, document.root) for document in documents]) if documents else None
+            async for documents in self._query_window(
+                params, block, keys, request_mode, pagination, publication_zone, allow_subday
+            ):
+                frames.append(project_documents([(document.name, document.root) for document in documents]))
+        return merge_window_results(frames, document_type) if frames else None
 
     @staticmethod
-    def _publication_window(
-        start: DateInput | None, end: DateInput | None, zone: tzinfo
-    ) -> tuple[datetime, datetime] | None:
+    def _publication_dates(start: DateInput | None, end: DateInput | None) -> tuple[date, date] | None:
         if start is None and end is None:
             return None
         if start is None or end is None:
             raise ValueError("Both start and end must be supplied for a request window")
-        first, last = (_date(value) for value in (start, end))
+        first, last = parse_date(start, name="start"), parse_date(end, name="end")
         if first >= last:
             raise ValueError("end must be a date after start")
-        return datetime.combine(first, time.min, zone), datetime.combine(last, time.min, zone)
+        return first, last
 
     @staticmethod
     def _update_window(start: DateTimeInput | None, end: DateTimeInput | None) -> tuple[datetime, datetime] | None:
@@ -407,21 +443,31 @@ class _Transport:
         window: tuple[datetime, datetime] | None,
         keys: tuple[str, str],
         request_mode: RequestMode,
-        pagination: tuple[int | None, PageUnit, str, int | None],
-    ) -> list[_Document]:
-        if window:
+        pagination: _Pagination,
+        publication_zone: tzinfo | None,
+        allow_subday: bool,
+    ) -> AsyncIterator[list[_Document]]:
+        if window is not None:
             window = window[0].astimezone(UTC), window[1].astimezone(UTC)
             params = params | dict(zip(keys, map(_utc_wire_time, window), strict=True))
         try:
-            return await self._query_pages(params, request_mode, *pagination)
+            documents = await self._query_pages(params, request_mode, *pagination)
         except PaginationError:
-            if not window or window[1] - window[0] < timedelta(minutes=2):
+            # Offsets index the parent response. They cannot be translated to the child responses.
+            if window is None or params.get(pagination.offset_key):
                 raise
-        start, end = window
-        pivot = (start + (end - start) / 2).replace(second=0, microsecond=0)
-        left = await self._query_window(params, (start, pivot), keys, request_mode, pagination)
-        right = await self._query_window(params, (pivot, end), keys, request_mode, pagination)
-        return left + right
+            start, end = window
+            pivot = _split_point(start, end, publication_zone, allow_subday)
+            if pivot is None:
+                raise
+            for block in ((start, pivot), (pivot, end)):
+                async for batch in self._query_window(
+                    params, block, keys, request_mode, pagination, publication_zone, allow_subday
+                ):
+                    yield batch
+        else:
+            if documents:
+                yield documents
 
     async def _query_pages(
         self,

@@ -1,23 +1,16 @@
 # Couverture de l’API ENTSO‑E
 
-Ce plan couvre les 77 requêtes de la collection Postman, dont 76 GET et un POST, ainsi que les 41 méthodes publiques de requête d’`entsoe-py`. Les trois modes de consultation de la charge réelle et les trois requêtes d’archives comptent chacun pour une fiche. [Collection Postman ENTSO‑E](https://documenter.getpostman.com/view/7009892/2s93JtP3F6)
+Le catalogue recense les 77 requêtes de la collection ENTSO‑E, dont 76 GET et un POST. Les trois modes de consultation de la charge réelle et les trois requêtes d’archives comptent chacun pour une fiche. [Collection Postman ENTSO‑E](https://documenter.getpostman.com/view/7009892/2s93JtP3F6)
 
-## Client Python
+## Vérifications restantes
 
-1. Faire passer les nouvelles méthodes asynchrones de `EntsoeClient` par un transport commun HTTPX2. Définir pour chaque requête les noms de paramètres tels que documentés, les valeurs fixes, les plages et filtres acceptés, ainsi que la pagination. Réutiliser `Area` et les types de codes existants lorsqu’ils expriment le domaine demandé. Accepter les EIC d’actifs et les identifiants de documents là où la fiche les prévoit. Le transport doit pouvoir omettre la fenêtre, notamment pour `Implementation_DateAndOrTime`, et préserver le sens des échanges entre deux zones.
-2. Accepter `datetime.date` et les chaînes ISO de date pour `start` et `end`. Convertir les deux minuits locaux en UTC en utilisant la zone interrogée, la zone d’origine pour un échange et la zone sélectionnée pour une composition de frontières. Utiliser UTC sans zone identifiable. La borne `end` est exclusive. Chaque méthode retourne un `pl.DataFrame` à schéma explicite, ou `None` si ENTSO‑E signale l’absence de données.
-3. Exposer `query_actual_total_load(..., request_mode="get")` avec `get` pour `securityToken` dans la query string, `get_header` pour `SECURITY_TOKEN` dans les en-têtes, et `post` pour `SECURITY_TOKEN` et un corps XML `StatusRequest_MarketDocument`. Utiliser la même projection pour les trois modes. Masquer le jeton dans les journaux et messages d’erreur. [Exemple POST](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#7ccbc838-4c05-45de-a5c8-9f506746e986)
-4. Exposer `archive=True` pour les allocations flow-based, les offres d’équilibrage et les changements de disponibilité des offres. Appliquer les plafonds de fenêtre et d’offset propres à chaque fiche. Compter les unités paginées avant l’aplatissement des données. Une unité peut être une série, un document, une instance ou un ZIP interne. Prendre en compte les fenêtres de mise à jour et les recherches par `mRID` pour les fiches concernées. [Paramètres de requête ENTSO‑E](https://transparencyplatform.zendesk.com/hc/en-us/articles/15696716612372-Request-Parameters)
+- Confirmer l’accès aux archives A83 dans la File Library avec son jeton dédié. La projection du format historique est couverte par un exemple XML officiel versionné. [Archives ENTSO‑E](https://transparencyplatform.zendesk.com/hc/en-us/articles/41986091964305-Archives-for-legacy-Transparency-Platform-publications)
 
 ## Compatibilité avec entsoe-py
 
-La liste ci-dessous couvre l’union des méthodes `query_*` d’`EntsoeRawClient` et d’`EntsoePandasClient` au commit `add323f6d0145e636501433e5a19a5c53a644022`. Chaque nom sera appelable sur `EntsoeClient`. Les méthodes qui partagent une requête appelleront le même transport et le même parseur. [Signatures dans le code source d’entsoe-py](https://github.com/fboerman/entsoe-py/blob/add323f6d0145e636501433e5a19a5c53a644022/entsoe/entsoe.py)
+Le tableau couvre les 41 méthodes de requête publiques d’`EntsoeRawClient` et d’`EntsoePandasClient` au commit `add323f6d0145e636501433e5a19a5c53a644022`. Les méthodes sont disponibles sur `EntsoeClient`. [Signatures d’entsoe-py](https://github.com/fboerman/entsoe-py/blob/add323f6d0145e636501433e5a19a5c53a644022/entsoe/entsoe.py)
 
-- Employer `country_code` pour une zone, `country_code_from` et `country_code_to` pour un échange orienté et `area_code` pour `query_unavailability_of_offshore_grid`. Accepter `Area`, un nom de zone ou un EIC. Employer des dates civiles pour `start` et `end` et permettre les appels avec les mêmes noms d’arguments qu’`entsoe-py`.
-- Conserver les paramètres et les valeurs par défaut communs. Quand les clients Raw et Pandas diffèrent, accepter les filtres nommés des deux et s’appuyer sur l’ordre de Pandas pour les appels positionnels qui divergent. Les options de projection restent explicites, avec des `pl.DataFrame` et des timestamps UTC. Documenter les différences de forme, de resampling et de gestion de l’absence de données. Déclarer les filtres pris en charge dans la signature et les valider selon la fiche ENTSO‑E.
-- Ajouter un test d’appel par nom du tableau avec les arguments nommés d’`entsoe-py`. Vérifier les valeurs par défaut, les variantes qui changent de requête et les compositions sans appel à l’API réelle.
-
-| Méthode à exposer | Requête ou composition | Paramètres spécifiques à conserver |
+| Méthode Python | Requête ou composition | Paramètres spécifiques à conserver |
 |---|---|---|
 | `query_day_ahead_prices` | R13, contrat `A01` | `offset=0`, `sequence=None`, `resolution=None` (déprécié en amont), `include_currency=False` |
 | `query_intraday_prices` | R13, contrat `A07` | `sequence` requis, `offset=0` |
@@ -44,9 +37,9 @@ La liste ci-dessous couvre l’union des méthodes `query_*` d’`EntsoeRawClien
 | `query_offered_capacity` | R03 en implicite, R07 (`A25`/`B05`) en explicite | `contract_marketagreement_type` requis, `implicit=True`, `offset=0` |
 | `query_aggregated_bids` | R53 | `process_type` requis, dont `A46`, `A47`, `A51`, `A60`, `A61`, `A67`, `A68` |
 | `query_activated_balancing_energy_prices` | R47, avec variante R48 | `process_type="A16"`, `psr_type=None`, `business_type=None`, `standard_market_product=None`, `original_market_product=None` |
-| `query_activated_balancing_energy` | `A83` historique ([voir ci-dessous](#données-historiques-a83)) | `business_type` requis, `psr_type=None` |
+| `query_activated_balancing_energy` | `A83` historique ([archives](README.md#historical-activated-balancing-energy)) | `business_type` requis, `psr_type=None` |
 | `query_imbalance_prices` | R72 | `psr_type=None` |
-| `query_imbalance_volumes` | R73, vérifier aussi la variante `A86` avec `psrType` d’`entsoe-py` | `psr_type=None`, `include_resolution=False` |
+| `query_imbalance_volumes` | R73 | `psr_type=None`, `include_resolution=False` |
 | `query_current_balancing_state` | R74 | — |
 | `query_procured_balancing_capacity` | R58 | `process_type` requis, `type_marketagreement_type=None`, `offset=0` |
 | `query_contracted_reserve_prices` | R57, prix | `process_type` et `type_marketagreement_type` requis, `psr_type=None`, `offset=0` |
@@ -55,41 +48,23 @@ La liste ci-dessous couvre l’union des méthodes `query_*` d’`EntsoeRawClien
 | `query_unavailability_of_generation_units` | R40 | `docstatus=None`, `periodstartupdate=None`, `periodendupdate=None`, `mRID=None`, `offset=0` |
 | `query_withdrawn_unavailability_of_generation_units` | R40 avec `DocStatus=A13` | `mRID=None` |
 | `query_unavailability_of_production_units` | R39 | `docstatus=None`, `periodstartupdate=None`, `periodendupdate=None`, `mRID=None` |
-| `query_unavailability_transmission` | R42 | `docstatus=None`, `periodstartupdate=None`, `periodendupdate=None`, `offset=0`. Exposer aussi `mRID` d’après R42. |
+| `query_unavailability_transmission` | R42 | `docstatus=None`, `periodstartupdate=None`, `periodendupdate=None`, `offset=0`, `mRID=None` |
 | `query_unavailability_of_offshore_grid` | R45 | `area_code` en premier argument |
 | `query_physical_crossborder_allborders` | R29 par voisin de `Neighbours`, alignement par timestamp et total | `export` requis, `per_hour=False`. Avec `per_hour=True`, prendre le premier résultat par heure comme le fait le code amont. |
 | `query_import` | `query_physical_crossborder_allborders(export=False)` | — |
 | `query_generation_import` | Combinaison de `query_generation(nett=True)` et `query_import` | — |
 
-### Données historiques A83
-
-Implémenter `query_activated_balancing_energy` avec la projection commune et le filtre `psr_type`. Tester le contrat historique (`A83`, `controlArea_Domain`, `businessType`, `psrType`) avec une réponse archivée. ENTSO‑E indique que la publication A83 a cessé le 11 décembre 2025 et renvoie vers les archives de la File Library et les données actives R53. Vérifier l’accès aux archives avant de promettre une couverture en ligne et documenter R53 pour les données récentes, avec ses filtres et son grain propres. [Archives officielles de la Transparency Platform](https://transparencyplatform.zendesk.com/hc/en-us/articles/41986091964305-Archives-for-legacy-Transparency-Platform-publications)
-
-## Parseur XML et projections
-
-1. Faire évoluer `src/parsers.rs` avec `xml-rs` pour lire les octets XML et associer les valeurs à leur chemin dans le document. Conserver l’URI d’espace de noms, les attributs comme `codingScheme`, le texte, l’ordre et les éléments répétés. Distinguer les noms XML qui contiennent un point des chemins réellement imbriqués. Identifier le document par sa racine et son URI. Conserver `parse_timeseries_generic` comme adaptateur pour les consommateurs existants.
-2. Conserver toutes les données métier des XML de réponse dans le DataFrame. Exposer en colonnes typées les mesures, leurs unités et devises d’origine, les horodatages UTC, les identifiants et leurs attributs comme `codingScheme`, les codes de statut, les révisions et les autres champs documentés. Conserver les champs XML non mappés dans une colonne `xml_extra` de type `List(Struct)`, avec le chemin qualifié, la position, la valeur et les attributs. Distinguer les champs absents par des valeurs nulles.
-3. Définir ce que représente une ligne pour chaque famille. Aplatir les objets imbriqués en colonnes et appliquer l’équivalent de `.explode()` aux collections qui déterminent le grain. Pour `TimeSeries → Period → Point`, chaque point devient une ligne portant les identifiants et métadonnées de ses parents, notamment la résolution et les unités applicables. Conserver toutes les occurrences et leur rattachement. Garder les collections répétées indépendantes en colonnes `List(Struct)` pour permettre leur explosion séparée sans produit cartésien. Si un parent porte des données et que sa collection est vide, conserver le parent avec des champs enfants nuls.
-4. Calculer les timestamps depuis le début de période, la résolution ISO 8601 et la position à partir de 1. Pour `A01`, chaque point couvre un pas. Pour `A03`, les points marquent des débuts de blocs dont la fin se déduit de la position suivante ou de la fin de période, avec traitement explicite des lacunes signalées. Éviter toute propagation de valeur entre périodes ou séries. [Courbes A01 et A03](https://transparencyplatform.zendesk.com/hc/en-us/articles/30262342482961-CurveType-A01-vs-CurveType-A03)
-5. Décoder les conteneurs en amont des projections. Reconnaître les ZIP par leur signature d’octets et traiter chaque membre XML, y compris dans les ZIP imbriqués. Examiner le code et le texte des `Reason` dans les acquittements, même en HTTP 200. Distinguer l’absence de données, les erreurs métier, les erreurs HTTP et le XML ou ZIP invalide. Conserver la cause et le nom du membre en cas d’échec de parsing.
-
-## Ordre de réalisation et validation
-
-1. Ajouter le lecteur et les tests Rust structuraux, puis vérifier les résultats sur les exemples correspondants.
-2. Ajouter le transport partagé et les réponses XML et ZIP. Implémenter les requêtes par famille de réponse. Enregistrer le schéma Polars et le grain de chaque méthode dans la documentation lors de son ajout.
-3. Paramétrer `httpx2.MockTransport` avec au moins un cas par fiche du catalogue. Vérifier la méthode HTTP, les valeurs fixes, les paramètres optionnels, les en-têtes ou le corps, ainsi que les lignes et types Polars. Tester les bornes et la fin de pagination, les ZIP imbriqués, les révisions, les champs manquants, les préfixes XML, les `Reason` et les corps non conformes.
-4. Vérifier la lecture structurelle sur le corpus versionné et les projections sur toutes les familles reliées au catalogue. Dans les tests de projection, vérifier le nombre de lignes, les liens parent-enfant et la conservation des unités, devises, attributs et champs non mappés. Couvrir deux collections indépendantes et un parent sans enfant. Vérifier A01, A03, les multiples périodes, les changements de résolution et les périodes traversant un changement d’heure. Exécuter `cargo test` et `uv run pytest -m "not live"` avec une extension Rust reconstruite. Réserver la vérification en ligne aux tests `live` existants ou à des cas ciblés avec le jeton de test.
-5. Couvrir des requêtes réelles avec le marqueur pytest `live`. Conserver les réponses HTTP brutes avec Hishel pour rejouer le décodage XML ou ZIP et la projection Polars à chaque test. [Hishel pour HTTPX2](https://hishel.com/httpx.html)
-
 ## Catalogue des requêtes
 
-Chaque fiche pointe vers la documentation et vers ses exemples. Les noms de paramètres respectent la casse de la fiche. Les valeurs de code indiquées sont celles de la requête principale de Postman. Pour les filtres qui acceptent plusieurs variantes, relever les valeurs admises et les combinaisons dans la fiche avant l’implémentation. « Statut à confirmer » signale un paramètre dont le caractère obligatoire ou facultatif est absent ou ambigu dans l’export.
+Chaque fiche pointe vers la documentation et vers ses exemples. Les noms de paramètres respectent la casse de la fiche. Les valeurs de code indiquées sont celles de la requête principale de Postman. « Statut à confirmer » signale un paramètre dont le caractère obligatoire ou facultatif est absent ou ambigu dans l’export.
 
 Le jeton utilise `securityToken` pour les GET, sauf R14. Les périodes sont données comme fenêtres maximales par appel. Les limites de réponse et les pas d’offset sont indiqués lorsqu’ils sont documentés. Pour les fiches qui annoncent un ZIP alors que leur exemple affiche le XML, le catalogue donne les deux indications.
 
+Les essais en ligne R41 et R46 exigent une fenêtre de publication. Les séries sont restées identiques avec une fenêtre de mise à jour volontairement hors période. Pour R41, un `mRID` inexistant a renvoyé les mêmes séries quand la zone et les dates étaient présentes. Pour R73, la requête du catalogue et la variante `A86` d’`entsoe-py` avec `psrType=B14` ont renvoyé les mêmes séries en Autriche le 1er janvier 2025.
+
 ### Market (13)
 
-| Fiche Postman | Méthode Python prévue | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
+| Fiche Postman | Méthode Python | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
 |---|---|---|---|---|---|---|
 | GET [12.1.E Implicit and Flow-based Allocations - Congestion Income](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#1a3c851c-6144-49e3-b0d6-45632e94e366) | `query_congestion_income` | `documentType=A25`, `businessType=B10`, `contract_MarketAgreement.Type`, `out_Domain`, `in_Domain`, `periodStart`, `periodEnd` | `curveType` | 1 an · 100 séries | XML | [R01](.agents/skills/entsoe-xml/references/postman-xml.md#r01) |
 | GET [12.1.B Total Nominated Capacity](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#518599da-fa8a-4b3a-9d3d-6ed4c6a23aa3) | `query_total_nominated_capacity` | `documentType=A26`, `businessType=B08`, `out_Domain`, `in_Domain`, `periodStart`, `periodEnd` | `curveType` | 1 an | XML | [R02](.agents/skills/entsoe-xml/references/postman-xml.md#r02) |
@@ -107,7 +82,7 @@ Le jeton utilise `securityToken` pour les GET, sauf R14. Les périodes sont donn
 
 ### Load (8)
 
-| Fiche Postman | Méthode Python prévue | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
+| Fiche Postman | Méthode Python | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
 |---|---|---|---|---|---|---|
 | GET [6.1.A Actual Total Load - SECURITY_TOKEN in header](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#f6b9b190-2b87-4cd1-9409-0c4f39399881) | `query_actual_total_load` · `request_mode="get_header"` | `documentType=A65`, `processType=A16`, `outBiddingZone_Domain`, `periodStart`, `periodEnd`, `SECURITY_TOKEN` en en-tête | `curveType` | 1 an | XML, exemple de référence | [R14](.agents/skills/entsoe-xml/references/postman-xml.md#r14) |
 | POST [6.1.A Actual Total Load (Post)](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#7ccbc838-4c05-45de-a5c8-9f506746e986) | `query_actual_total_load` · `request_mode="post"` | `SECURITY_TOKEN` et `Content-Type: application/xml` en en-tête, enveloppe `StatusRequest_MarketDocument` de type `A59`, attributs `DocumentType=A65`, `ProcessType=A16`, `OutBiddingZone_Domain`, `TimeInterval` | — | 1 an | XML | [R15](.agents/skills/entsoe-xml/references/postman-xml.md#r15) |
@@ -120,7 +95,7 @@ Le jeton utilise `securityToken` pour les GET, sauf R14. Les périodes sont donn
 
 ### Generation (7)
 
-| Fiche Postman | Méthode Python prévue | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
+| Fiche Postman | Méthode Python | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
 |---|---|---|---|---|---|---|
 | GET [14.1.A Installed Capacity per Production Type](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#93160892-f305-43d8-80e7-545535250034) | `query_installed_generation_capacity_by_type` | `documentType=A68`, `processType=A33`, `in_Domain`, `periodStart`, `periodEnd` | `PsrType`, `curveType` | 1 an | XML | [R22](.agents/skills/entsoe-xml/references/postman-xml.md#r22) |
 | GET [16.1.D Water Reservoirs and Hydro Storage Plants](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#cb402c39-5ee5-4dbb-a1cd-e681d5a524f8) | `query_hydro_reservoir_storage` | `documentType=A72`, `processType=A16`, `in_Domain`, `periodStart`, `periodEnd` | `curveType` | 1 an | XML | [R23](.agents/skills/entsoe-xml/references/postman-xml.md#r23) |
@@ -132,7 +107,7 @@ Le jeton utilise `securityToken` pour les GET, sauf R14. Les périodes sont donn
 
 ### Transmission (10)
 
-| Fiche Postman | Méthode Python prévue | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
+| Fiche Postman | Méthode Python | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
 |---|---|---|---|---|---|---|
 | GET [12.1.G Cross-Border Physical Flows](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#cf2e0dec-50ef-45e0-8da9-f13eb4454733) | `query_cross_border_physical_flows` | `documentType=A11`, `out_Domain`, `in_Domain`, `periodStart`, `periodEnd` | `curveType` | 1 an | XML | [R29](.agents/skills/entsoe-xml/references/postman-xml.md#r29) |
 | GET [11.1.A Forecasted Transfer Capacities](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#cb2543fd-d20b-44ff-af6b-9ceae86c61cd) | `query_forecast_transfer_capacity` | `documentType=A61`, `contract_MarketAgreement.Type`, `out_Domain`, `in_Domain`, `periodStart`, `periodEnd` | `curveType` | 1 an | XML | [R30](.agents/skills/entsoe-xml/references/postman-xml.md#r30) |
@@ -147,20 +122,20 @@ Le jeton utilise `securityToken` pour les GET, sauf R14. Les périodes sont donn
 
 ### Outages (8)
 
-| Fiche Postman | Méthode Python prévue | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
+| Fiche Postman | Méthode Python | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
 |---|---|---|---|---|---|---|
 | GET [15.1.C-D Unavailability of Production Units](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#79fa460a-8463-4247-8f54-d30062a4154b) | `query_production_unit_unavailability` | `documentType=A77`, `BiddingZone_Domain` (si aucun `mRID`), `periodStart`, `periodEnd` | `BusinessType=A53`, `DocStatus`, `PeriodStartUpdate`, `PeriodEndUpdate`, `RegisteredResource`, `mRID`, `offset` | 1 an · 200 documents · pas d’offset 200 · fenêtre de mise à jour prioritaire | ZIP de XML | [R39](.agents/skills/entsoe-xml/references/postman-xml.md#r39) |
 | GET [15.1.A&B Unavailability of Generation Units](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#1d54f9eb-820b-4c0b-b7ad-ba0dc1cc50ac) | `query_generation_unit_unavailability` | `documentType=A80`, `BiddingZone_Domain` (si aucun `mRID`), `periodStart`, `periodEnd` | `BusinessType=A53`, `DocStatus`, `PeriodStartUpdate`, `PeriodEndUpdate`, `RegisteredResource`, `mRID`, `offset` | 1 an · 200 documents · pas d’offset 200 · fenêtre de mise à jour prioritaire | ZIP de XML | [R40](.agents/skills/entsoe-xml/references/postman-xml.md#r40) |
-| GET [7.1.A-B Aggregated Unavailability of Consumption Units](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#50e47a07-24a9-4beb-a910-a54f78ff3502) | `query_aggregated_consumption_unit_unavailability` | `documentType=A76`, `BiddingZone_Domain` (si aucun `mRID`), `periodStart` (si aucun `PeriodStartUpdate`), `periodEnd` (si aucun `PeriodEndUpdate`) | `BusinessType=A53`, `curveType` | 1 an | XML | [R41](.agents/skills/entsoe-xml/references/postman-xml.md#r41) |
+| GET [7.1.A-B Aggregated Unavailability of Consumption Units](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#50e47a07-24a9-4beb-a910-a54f78ff3502) | `query_aggregated_consumption_unit_unavailability` | `documentType=A76`, `BiddingZone_Domain`, `periodStart`, `periodEnd` | `BusinessType=A53`, `curveType` | 1 an | XML | [R41](.agents/skills/entsoe-xml/references/postman-xml.md#r41) |
 | GET [10.1.A&B Unavailability of Transmission Infrastructure](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#f60d9fb3-43a7-4532-859d-a5a5527b8d94) | `query_transmission_unavailability` | `documentType=A78`, `Out_Domain` (si aucun `mRID`), `In_Domain` (si aucun `mRID`), `periodStart`, `periodEnd` | `BusinessType=A53`, `DocStatus`, `PeriodStartUpdate`, `PeriodEndUpdate`, `mRID`, `offset` | 1 an · 200 documents · pas d’offset 200 · fenêtre de mise à jour prioritaire | ZIP de XML | [R42](.agents/skills/entsoe-xml/references/postman-xml.md#r42) |
 | GET [10.1.A&B Unavailability of Transmission Infrastructure - Available Capacity](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#362e6f9b-3025-4435-b63e-7857599296d0) | `query_transmission_unavailability_available_capacity` | `documentType=A78`, `ControlArea_Domain` (si aucun `mRID`), `periodStart`, `periodEnd` | `BusinessType=A53`, `Asset_RegisteredResource.mRID`, `DocStatus`, `PeriodStartUpdate`, `PeriodEndUpdate`, `mRID`, `offset` | 1 an · 200 documents · pas d’offset 200 · fenêtre de mise à jour prioritaire | ZIP de XML | [R43](.agents/skills/entsoe-xml/references/postman-xml.md#r43) |
 | GET [10.1.A&B Unavailability of Transmission Infrastructure - Net Position Impact](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#9ef4ee96-23cc-4470-82b2-ed5fdbb03f0c) | `query_transmission_unavailability_net_position_impact` | `documentType=A78`, `pTDF_Domain.mRID` (si aucun `mRID`), `periodStart`, `periodEnd` | `BusinessType=A53`, `DocStatus`, `PeriodStartUpdate`, `PeriodEndUpdate`, `mRID`, `offset`, Statut à confirmer pour `Asset_RegisteredResource.mRID` | 1 an · 200 documents · pas d’offset 200 · fenêtre de mise à jour prioritaire | ZIP de XML | [R44](.agents/skills/entsoe-xml/references/postman-xml.md#r44) |
 | GET [10.1.C Unavailability of Offshore Grid Infrastructure](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#529ca7e7-9e89-412a-93d8-fb225ede5df7) | `query_offshore_grid_unavailability` | `documentType=A79`, `BiddingZone_Domain` (si aucun `mRID`), `periodStart` (si aucun `PeriodStartUpdate`), `periodEnd` (si aucun `PeriodEndUpdate`) | `DocStatus`, `PeriodStartUpdate` (requis si aucune fenêtre de publication), `PeriodEndUpdate` (requis si aucune fenêtre de publication), `mRID`, `offset` | 1 an · 200 documents · pas d’offset 200 · fenêtre de mise à jour prioritaire | ZIP de XML | [R45](.agents/skills/entsoe-xml/references/postman-xml.md#r45) |
-| GET [Fall-backs \[IFs IN 7.2, mFRR 3.11, aFRR 3.10\]](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#cb4ba59d-0dd5-4b43-b2d4-4b6d18c83c94) | `query_fall_backs` | `documentType=A53`, `ProcessType=A51`, `BusinessType=C47`, `BiddingZone_Domain`, `periodStart` (si aucun `PeriodStartUpdate`), `periodEnd` (si aucun `PeriodEndUpdate`) | `DocStatus`, `mRID`, `offset` | 1 an · 100 documents · pas d’offset 100 | ZIP de XML | [R46](.agents/skills/entsoe-xml/references/postman-xml.md#r46) |
+| GET [Fall-backs \[IFs IN 7.2, mFRR 3.11, aFRR 3.10\]](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#cb4ba59d-0dd5-4b43-b2d4-4b6d18c83c94) | `query_fall_backs` | `documentType=A53`, `ProcessType=A51`, `BusinessType=C47`, `BiddingZone_Domain`, `periodStart`, `periodEnd` | `DocStatus`, `mRID`, `offset` | 1 an · 100 documents · pas d’offset 100 | ZIP de XML | [R46](.agents/skills/entsoe-xml/references/postman-xml.md#r46) |
 
 ### Balancing (29)
 
-| Fiche Postman | Méthode Python prévue | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
+| Fiche Postman | Méthode Python | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
 |---|---|---|---|---|---|---|
 | GET [17.1.F Prices of Activated Balancing Energy](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#c301d91e-53ac-4aca-8e18-f29e9146c4a6) | `query_activated_balancing_energy_prices` | `documentType=A84`, `processType=A16`, `controlArea_Domain`, `periodStart`, `periodEnd` | `businessType=A96`, `ExportType`, `PsrType`, `Standard_MarketProduct`, `Original_MarketProduct`, `curveType` | 1 an | XML | [R47](.agents/skills/entsoe-xml/references/postman-xml.md#r47) |
 | GET [IF aFRR 3.16 Cross Border Marginal Prices (CBMPs) for aFRR Central Selection (CS)](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#d8e9ac28-1687-4339-bc18-7afad2bf028c) | `query_afrr_cross_border_marginal_prices` | `documentType=A84`, `processType=A67`, `businessType=A96`, `Standard_MarketProduct`, `controlArea_Domain`, `periodStart`, `periodEnd` | — | 1 j | XML | [R48](.agents/skills/entsoe-xml/references/postman-xml.md#r48) |
@@ -194,19 +169,12 @@ Le jeton utilise `securityToken` pour les GET, sauf R14. Les périodes sont donn
 
 ### Master Data (1)
 
-| Fiche Postman | Méthode Python prévue | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
+| Fiche Postman | Méthode Python | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
 |---|---|---|---|---|---|---|
 | GET [Production and Generation Units](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#dbff7cb1-04f1-42d3-b8ae-bfb105a58b14) | `query_production_and_generation_units` | `documentType=A95`, `businessType=B11`, `BiddingZone_Domain`, `Implementation_DateAndOrTime` | `psrType` | date de référence | XML | [R76](.agents/skills/entsoe-xml/references/postman-xml.md#r76) |
 
 ### OMI (1)
 
-| Fiche Postman | Méthode Python prévue | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
+| Fiche Postman | Méthode Python | Paramètres requis | Paramètres optionnels ou à confirmer | Limites | Réponse | Exemples |
 |---|---|---|---|---|---|---|
 | GET [Other Market Information](https://documenter.getpostman.com/view/7009892/2s93JtP3F6#c0941c12-e1fd-4f45-9de6-eaa15851d8b8) | `query_other_market_information` | `documentType=B47`, `ControlArea_Domain`, `periodStart`, `periodEnd` | `DocStatus`, `PeriodStartUpdate` (requis si aucune fenêtre de publication), `PeriodEndUpdate` (requis si aucune fenêtre de publication), `Offset`, `mRID` | 1 an · 200 documents · pas d’offset 200 · fenêtre de mise à jour prioritaire | ZIP de XML | [R77](.agents/skills/entsoe-xml/references/postman-xml.md#r77) |
-
-### Points à vérifier dans la documentation
-
-- Les deux requêtes RR spécifiques R64 et R65 ont leurs propres codes et cas de test. Elles peuvent partager une projection avec R62 et R63.
-- R41 et R46 mentionnent des filtres de mise à jour dans la description de la fenêtre, mais leur fiche ne liste pas ces filtres. R41 mentionne aussi la recherche par identifiant sans exposer `mRID`. Vérifier ces filtres avant de les rendre publics.
-- R12 et R70 décrivent la pagination par offset dans les limites de réponse. Vérifier l’envoi de ce paramètre dans un test de contrat.
-- R28 et R76 ne documentent pas de plafond de fenêtre. R76 sélectionne un état du référentiel à une date `Implementation_DateAndOrTime`.

@@ -69,6 +69,27 @@ async def test_day_ahead_pages_count_time_series_and_return_polars():
     assert frame["currency_Unit.name"].unique().to_list() == ["EUR"]
 
 
+async def test_price_windows_merge_copies_with_different_response_envelopes():
+    starts = []
+
+    def handler(request):
+        starts.append(request.url.params["periodStart"])
+        number = len(starts)
+        envelope = (
+            f"<mRID>response-{number}</mRID><type>A44</type>"
+            f"<createdDateTime>2025-01-02T00:00:0{number}Z</createdDateTime>"
+        )
+        return httpx2.Response(200, text=MARKET_RESPONSE.replace("<mRID>market-test</mRID>", envelope))
+
+    client = EntsoeClient("test", transport=httpx2.MockTransport(handler))
+    async with client.session:
+        frame = await client.query_day_ahead_prices("FR", date(2024, 1, 1), date(2025, 1, 2))
+
+    assert starts == ["202312312300", "202412312300"]
+    assert frame is not None
+    assert frame.select("document_mRID", "price.amount").rows() == [("response-1", 42.5)]
+
+
 @pytest.mark.parametrize(
     ("method", "args", "kwargs", "expected"),
     [
@@ -141,8 +162,8 @@ async def test_day_ahead_pages_count_time_series_and_return_polars():
         (
             "query_continuous_offered_transfer_capacity",
             ("FR", "BE", "A08", "A07"),
-            {},
-            {"DocumentType": "A31", "Auction.Type": "A08", "Contract_MarketAgreement.Type": "A07", "offset": "0"},
+            {"offset": 100},
+            {"DocumentType": "A31", "Auction.Type": "A08", "Contract_MarketAgreement.Type": "A07", "offset": "100"},
         ),
         (
             "query_energy_prices",

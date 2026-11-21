@@ -810,6 +810,7 @@ def _project_time_series_document(document: dict[str, Any], document_name: str |
             start, end = _period_bounds(period)
             resolution = _value(period, "resolution")
             curve_type = _value(period, "curveType") or series_record["curveType"]
+            period_xml_extra = _parent_xml_values(document, series, period)
             period_record: dict[str, Any] = dict(
                 series_record,
                 row_kind="period",
@@ -817,7 +818,7 @@ def _project_time_series_document(document: dict[str, Any], document_name: str |
                 period_end=end,
                 resolution=resolution,
                 curveType=curve_type,
-                xml_extra=_parent_xml_values(document, series, period),
+                xml_extra=period_xml_extra,
             )
             points = _children(period, "Point")
             if not points:
@@ -847,12 +848,13 @@ def _project_time_series_document(document: dict[str, Any], document_name: str |
             for index, point in enumerate(points):
                 timestamp = point_times[index]
                 timestamp_end = block_ends[index] if curve_type == "A03" else _add_resolution(timestamp, resolution)
+                point_xml_extra = period_xml_extra.copy()
                 record: dict[str, Any] = dict(
                     period_record,
                     row_kind="point",
                     timestamp=timestamp,
                     timestamp_end=timestamp_end,
-                    xml_extra=list(period_record["xml_extra"]),
+                    xml_extra=point_xml_extra,
                 )
                 point_path = "/".join(
                     (
@@ -863,7 +865,7 @@ def _project_time_series_document(document: dict[str, Any], document_name: str |
                     )
                 )
                 _point_fields(record, point, point_path)
-                record["xml_extra"].extend(
+                point_xml_extra.extend(
                     _xml_values(
                         point,
                         point_path,
@@ -901,3 +903,21 @@ def project_documents(documents: list[tuple[str | None, dict[str, Any]]]) -> pl.
     for document_name, root in documents:
         records.extend(_project_time_series_document(root, document_name))
     return pl.DataFrame(records, schema=PROJECTION_SCHEMA, strict=False)
+
+
+def merge_window_results(frames: list[pl.DataFrame], document_type: str) -> pl.DataFrame:
+    """Keep each source row up to its greatest multiplicity in one window."""
+    if len(frames) == 1:
+        return frames[0]
+
+    # Keep transport metadata from the first copy. The price API generates a new envelope for each response.
+    transport_metadata = {"document_name"}
+    if document_type == "A44":
+        transport_metadata.update(("document_mRID", "document_createdDateTime"))
+    identity = [name for name in PROJECTION_SCHEMA if name not in transport_metadata]
+    combined = pl.concat(frame.with_columns(pl.lit(index).alias("_window")) for index, frame in enumerate(frames))
+    return (
+        combined.with_columns(pl.col("_window").cum_count().over([*identity, "_window"]).alias("_occurrence"))
+        .unique(subset=[*identity, "_occurrence"], maintain_order=True)
+        .drop("_window", "_occurrence")
+    )

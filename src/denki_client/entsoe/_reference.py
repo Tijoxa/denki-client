@@ -5,8 +5,9 @@ from datetime import date, datetime
 import polars as pl
 
 from denki_client.area import Area, DocStatus, PsrType
+from denki_client.parsers import parse_date
 
-from ._transport import _Transport, area_code, format_datetime
+from ._transport import _Transport, area_code
 
 
 def _code(value: DocStatus | PsrType | str | None, name: str, allowed: tuple[str, ...]) -> str | None:
@@ -30,11 +31,11 @@ class ReferenceQueries(_Transport):
     async def query_production_and_generation_units(
         self,
         country_code: Area | str,
-        implementation_date_and_or_time: datetime | str,
+        implementation_date_and_or_time: date | str,
         *,
         psr_type: PsrType | str | None = None,
     ) -> pl.DataFrame | None:
-        """Query production and generation unit master data at a reference time (R76)."""
+        """Query production and generation unit master data on a reference date (R76)."""
         return await self._query(
             "A95",
             None,
@@ -42,7 +43,9 @@ class ReferenceQueries(_Transport):
             max_window=None,
             BiddingZone_Domain=area_code(country_code),
             BusinessType="B11",
-            Implementation_DateAndOrTime=format_datetime(implementation_date_and_or_time).split("T", 1)[0],
+            Implementation_DateAndOrTime=parse_date(
+                implementation_date_and_or_time, name="implementation_date_and_or_time"
+            ).isoformat(),
             psrType=_code(psr_type, "psr_type", tuple(PsrType.__members__)),
         )
 

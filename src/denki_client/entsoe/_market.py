@@ -47,6 +47,10 @@ class MarketQueries(_Transport):
             else value
             for key, value in params.items()
         }
+        # ENTSO-E returns whole delivery days (or a longer delivery period) for these publications.
+        whole_period = document_type in {"A25", "A31", "A44", "A94", "B09"} or (
+            document_type == "A26" and params.get("businessType") == "A29"
+        )
         return await self._query(
             document_type,
             start,
@@ -59,6 +63,7 @@ class MarketQueries(_Transport):
             document_key=document_key,
             start_key=start_key,
             end_key=end_key,
+            allow_subday=not whole_period,
             wire_params=wire_params,
         )
 
