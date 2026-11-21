@@ -5,6 +5,7 @@ import polars as pl
 import pytest
 
 from denki_client import EntsoeClient
+from denki_client.area import Area, Neighbours, lookup_area
 
 
 async def test_day_ahead_pages_return_polars():
@@ -46,12 +47,13 @@ async def test_day_ahead_pages_return_polars():
     assert df["price.amount"].to_list() == [52.0, 53.25, 52.0, 53.25]
 
 
-async def test_balancing_volume_decodes_codes():
+@pytest.mark.parametrize("direction_code, direction", [("A01", "Up"), ("A03", "Symmetric")])
+async def test_balancing_volume_decodes_codes(direction_code, direction):
     response = httpx2.Response(
         200,
-        text="""<Publication_MarketDocument>
+        text=f"""<Publication_MarketDocument>
             <TimeSeries>
-                <flowDirection.direction>A01</flowDirection.direction>
+                <flowDirection.direction>{direction_code}</flowDirection.direction>
                 <businessType>A96</businessType>
                 <quantity_Measure_Unit.name>MWH</quantity_Measure_Unit.name>
                 <period>
@@ -67,7 +69,27 @@ async def test_balancing_volume_decodes_codes():
         df = await client.query_activated_balancing_energy_volume("FR", start="20250101", end="20250102")
 
     assert isinstance(df, pl.DataFrame)
-    assert df.select("flowDirection.direction", "businessType", "quantity").row(0) == ("Up", "aFRR", 12.5)
+    assert df.select("flowDirection.direction", "businessType", "quantity").row(0) == (direction, "aFRR", 12.5)
+
+
+async def test_area_lookup_uses_iceland_eic_in_requests():
+    def handle_request(request):
+        assert request.url.params["in_Domain"] == "10Y1001A1001A958"
+        assert request.url.params["out_Domain"] == "10Y1001A1001A958"
+        return httpx2.Response(400, text="<text>No matching data found</text>")
+
+    client = EntsoeClient("test", transport=httpx2.MockTransport(handle_request))
+    async with client.session:
+        assert await client.query_day_ahead_price("is", start="20250101", end="20250102") is None
+
+
+def test_northern_ireland_alias_resolves_to_existing_area_and_neighbours():
+    area = lookup_area("nie")
+
+    assert area is Area.GB_NIR is Area.NIE
+    assert lookup_area("10Y1001A1001A016") is area
+    assert Neighbours[area.name] is Neighbours.NIE
+    assert "NIE" in Neighbours.IE.value
 
 
 @pytest.mark.parametrize("query", ["query_day_ahead_price", "query_actual_generation_per_production_type"])

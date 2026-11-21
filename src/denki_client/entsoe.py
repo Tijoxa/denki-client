@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Literal
+from typing import ClassVar, Literal
 
 import httpx2
 import polars as pl
@@ -22,6 +22,8 @@ from denki_client.utils import documents_limited, inclusive, parse_inputs, split
 
 
 class EntsoeClient:
+    base_url: ClassVar[str] = "https://web-api.tp.entsoe.eu/api"
+
     def __init__(self, api_key: str, **httpx2_client_kwargs) -> None:
         """Client to ENTSO-e API.
 
@@ -31,7 +33,6 @@ class EntsoeClient:
         API doc: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6`.
         """
         self.api_key = api_key
-        self.base_url = "https://web-api.tp.entsoe.eu/api"
         self.session = httpx2.AsyncClient(**httpx2_client_kwargs)
         self.logger = logging.getLogger(__name__)
 

@@ -52,7 +52,7 @@ class Area(enum.Enum):
     def has_code(cls, code: str) -> bool:
         return code in cls.__members__
 
-    # List taken directly from the API Docs
+    # Area and neighbour mappings follow entsoe-py at add323f6d0145e636501433e5a19a5c53a644022.
     # fmt: off
     DE_50HZ =        "10YDE-VE-------2", "50Hertz CA, DE(50HzT) BZA",                                  "Europe/Berlin",
     AL =             "10YAL-KESH-----5", "Albania, OST BZ / CA / MBA",                                 "Europe/Tirane",
@@ -81,7 +81,7 @@ class Area(enum.Enum):
     DE =             "10Y1001A1001A83F", "Germany",                                                    "Europe/Berlin"
     GR =             "10YGR-HTSO-----Y", "Greece, IPTO BZ / CA/ MBA",                                  "Europe/Athens",
     HU =             "10YHU-MAVIR----U", "Hungary, MAVIR CA / BZ / MBA",                               "Europe/Budapest",
-    IS =             "IS",               "Iceland",                                                    "Atlantic/Reykjavik",
+    IS =             "10Y1001A1001A958", "Iceland",                                                    "Atlantic/Reykjavik",
     IE_SEM =         "10Y1001A1001A59C", "Ireland (SEM) BZ / MBA",                                     "Europe/Dublin",
     IE =             "10YIE-1001A00010", "Ireland, EirGrid CA",                                        "Europe/Dublin",
     IT =             "10YIT-GRTN-----B", "Italy, IT CA / MBA",                                         "Europe/Rome",
@@ -143,6 +143,7 @@ class Area(enum.Enum):
     SK =             "10YSK-SEPS-----K", "Slovakia, SEPS BZ / CA / MBA",                               "Europe/Bratislava",
     SI =             "10YSI-ELES-----O", "Slovenia, ELES BZ / CA / MBA",                               "Europe/Ljubljana",
     GB_NIR =         "10Y1001A1001A016", "Northern Ireland, SONI CA",                                  "Europe/Belfast",
+    NIE = GB_NIR
     ES =             "10YES-REE------0", "Spain, REE BZ / CA / MBA",                                   "Europe/Madrid",
     SE =             "10YSE-1--------K", "Sweden, Sweden MBA, SvK CA",                                 "Europe/Stockholm",
     CH =             "10YCH-SWISSGRIDZ", "Switzerland, Swissgrid BZ / CA / MBA",                       "Europe/Zurich",
@@ -172,7 +173,7 @@ class PsrType(enum.Enum):
     B08 = "Fossil Peat"
     B09 = "Geothermal"
     B10 = "Hydro Pumped Storage"
-    B11 = "Hydro Run-of-river and poundage"
+    B11 = "Hydro Run-of-river and pondage"
     B12 = "Hydro Water Reservoir"
     B13 = "Marine"
     B14 = "Nuclear"
@@ -192,6 +193,7 @@ class PsrType(enum.Enum):
 class FlowDirection(enum.Enum):
     A01 = "Up"
     A02 = "Down"
+    A03 = "Symmetric"
 
 
 class BusinessType(enum.Enum):
@@ -216,7 +218,9 @@ class BsnType(enum.Enum):
     A14 = "Aggregated energy data"
     A19 = "Balance energy deviation"
     A25 = "General Capacity Information"
+    A26 = "Available transfer capacity (ATC)"
     A29 = "Already allocated capacity (AAC)"
+    A37 = "Installed generation"
     A43 = "Requested capacity (without price)"
     A46 = "System Operator redispatching"
     A53 = "Planned maintenance"
@@ -237,6 +241,7 @@ class BsnType(enum.Enum):
     B03 = "Counter trade"
     B04 = "Congestion costs"
     B05 = "Capacity allocated (including price)"
+    B06 = "DC link constraint"
     B07 = "Auction revenue"
     B08 = "Total nominated capacity"
     B09 = "Net position"
@@ -246,9 +251,16 @@ class BsnType(enum.Enum):
     B74 = "Offer"
     B75 = "Need"
     B95 = "Procured capacity"
+    C21 = "Exchanged balancing reserve capacity"
     C22 = "Shared Balancing Reserve Capacity"
     C23 = "Share of reserve capacity"
     C24 = "Actual reserve capacity"
+    C46 = "Dynamic stability limit"
+    C47 = "Disconnection"
+    C76 = "Forecasted capacity"
+    C77 = "Minimum available capacity"
+    C78 = "Average available capacity"
+    C79 = "Maximum available capacity"
 
 
 class MarketAgreementType(enum.Enum):
@@ -262,6 +274,19 @@ class MarketAgreementType(enum.Enum):
     A13 = "Hourly"
 
 
+class AuctionType(enum.Enum):
+    A01 = "Implicit"
+    A02 = "Explicit"
+    A08 = "Continuous"
+
+
+class AuctionCategory(enum.Enum):
+    A01 = "Base"
+    A02 = "Peak"
+    A03 = "Off Peak"
+    A04 = "Hourly"
+
+
 class DocumentType(enum.Enum):
     A09 = "Finalised schedule"
     A11 = "Aggregated energy data report"
@@ -269,9 +294,14 @@ class DocumentType(enum.Enum):
     A24 = "Bid document"
     A25 = "Allocation result document"
     A26 = "Capacity document"
+    A30 = "Cross border schedule"
     A31 = "Agreed capacity"
+    A37 = "Reserve bid document"
     A38 = "Reserve allocation result document"
     A44 = "Price Document"
+    A45 = "Measurement Value Document"
+    A53 = "Outage publication document"
+    A59 = "Status request document"
     A61 = "Estimated Net Transfer Capacity"
     A63 = "Redispatch notice"
     A65 = "System total load"
@@ -303,9 +333,13 @@ class DocumentType(enum.Enum):
     A93 = "DC link capacity"
     A94 = "Non EU allocations"
     A95 = "Configuration document"
+    A99 = "HVDC link constraints"
+    # B09 is the request code in the current Flow Based Allocations Postman examples.
+    B09 = "Flow-based allocation query"
     B11 = "Flow-based allocations"
     B17 = "Aggregated netted external TSO schedule document"
     B45 = "Bid Availability Document"
+    B47 = "Other Market Information"
 
 
 class ProcessType(enum.Enum):
@@ -318,6 +352,7 @@ class ProcessType(enum.Enum):
     A33 = "Year ahead"
     A39 = "Synchronisation process"
     A40 = "Intraday process"
+    A44 = "Flow based domain constraint intraday"
     A46 = "Replacement reserve"
     A47 = "Manual frequency restoration reserve"
     A51 = "Automatic frequency restoration reserve"
@@ -325,6 +360,8 @@ class ProcessType(enum.Enum):
     A56 = "Frequency restoration reserve"
     A60 = "Scheduled activation mFRR"
     A61 = "Direct activation mFRR"
+    A63 = "Imbalance Netting"
+    A65 = "Criteria application for frequency restoration"
     A67 = "Central Selection aFRR"
     A68 = "Local Selection aFRR"
 
@@ -342,12 +379,12 @@ class Neighbours(enum.Enum):
     HU = ["AT", "HR", "RO", "RS", "SI", "SK", "UA"]
     IT_NORD = ["CH", "DE_AT_LU", "FR", "SI", "AT", "IT_CNOR"]
     ES = ["FR", "PT"]
-    SI = ["AT", "DE_AT_LU", "HR", "IT_NORD"]
+    SI = ["AT", "DE_AT_LU", "HR", "IT_NORD", "HU"]
     RS = ["AL", "BA", "BG", "HR", "HU", "ME", "MK", "RO"]
     PL = ["CZ", "DE_AT_LU", "DE_LU", "LT", "SE_4", "SK", "UA"]
     ME = ["AL", "BA", "RS"]
     DK_1 = ["DE_AT_LU", "DE_LU", "DK_2", "NO_2", "SE_3", "NL", "GB"]
-    RO = ["BG", "HU", "RS", "UA"]
+    RO = ["BG", "HU", "RS", "UA", "MD"]
     LT = ["BY", "LV", "PL", "RU_KGD", "SE_4"]
     BG = ["GR", "MK", "RO", "RS", "TR"]
     SE_3 = ["DK_1", "FI", "NO_1", "SE_2", "SE_4"]
@@ -381,3 +418,7 @@ class Neighbours(enum.Enum):
     IT_CALA = ["IT_SICI", "IT_SUD"]
     MT = ["IT_SICI"]
     HR = ["BA", "HU", "RS", "SI"]
+    IE = ["GB", "NIE"]
+    NIE = ["GB", "IE"]
+    GB_NIR = NIE
+    MD = ["UA", "RO"]
