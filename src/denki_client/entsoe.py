@@ -1,10 +1,9 @@
 import logging
 from datetime import datetime
-from types import ModuleType
 from typing import Literal
 
-import httpx
-import narwhals as nw
+import httpx2
+import polars as pl
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from denki_client._core import parse_timeseries_generic
@@ -23,33 +22,31 @@ from denki_client.utils import documents_limited, inclusive, parse_inputs, split
 
 
 class EntsoeClient:
-    def __init__(self, api_key: str, backend: ModuleType | nw.Implementation | str, **httpx_client_kwargs) -> None:
+    def __init__(self, api_key: str, **httpx2_client_kwargs) -> None:
         """Client to ENTSO-e API.
 
         :param str api_key: API key obtained by creating an account on the website.
-        :param ModuleType | Implementation | str backend: Narwhals's compatible backend.
-        :param dict httpx_client_kwargs: Additional keyword arguments to pass to the httpx client.
+        :param dict httpx2_client_kwargs: Additional keyword arguments to pass to the httpx2 client.
 
         API doc: `https://documenter.getpostman.com/view/7009892/2s93JtP3F6`.
         """
         self.api_key = api_key
         self.base_url = "https://web-api.tp.entsoe.eu/api"
-        self.session = httpx.AsyncClient(**httpx_client_kwargs)
+        self.session = httpx2.AsyncClient(**httpx2_client_kwargs)
         self.logger = logging.getLogger(__name__)
-        self.backend = backend
 
     @retry(
-        retry=retry_if_exception_type((httpx.ConnectError, httpx.ReadTimeout)),
+        retry=retry_if_exception_type((httpx2.ConnectError, httpx2.ReadTimeout)),
         stop=stop_after_attempt(3),
         wait=wait_fixed(2),
     )
-    async def _base_request(self, params: dict, start_str: str, end_str: str) -> httpx.Response:
+    async def _base_request(self, params: dict, start_str: str, end_str: str) -> httpx2.Response:
         """Base Request.
 
         :param dict params: parameters dictionnary. See documentation for more details.
         :param str start_str: Pattern yyyyMMddHHmm e.g. 201601010000. Considered timezone is the local one.
         :param str end_str: Pattern yyyyMMddHHmm e.g. 201601010000 Considered timezone is the local one.
-        :return httpx.Response:
+        :return httpx2.Response:
         """
         base_params = {
             "securityToken": self.api_key,
@@ -82,14 +79,14 @@ class EntsoeClient:
     @inclusive("1d", "left")
     async def query_day_ahead_price(
         self, area: Area | str, *, start: datetime | str, end: datetime | str, offset: int = 0
-    ) -> nw.DataFrame | None:
+    ) -> pl.DataFrame | None:
         """Query day-ahead price.
 
         :param  Area | str area:
         :param datetime | str start: start of the query
         :param datetime | str end: end of the query
         :param int offset: defaults to 0
-        :return nw.DataFrame | None: DataFrame with the following columns:
+        :return pl.DataFrame | None: DataFrame with the following columns:
         - timestamp: in UTC
         - price.amount: in €/MWh
         - resolution
@@ -111,30 +108,29 @@ class EntsoeClient:
         )
         if data == {}:
             return None
-        df = nw.from_dict(data, DAY_AHEAD_SCHEMA, backend=self.backend)
-        return df
+        return pl.from_dict(data, schema=DAY_AHEAD_SCHEMA)
 
     @parse_inputs
     @split_query("1y")
     async def query_activated_balancing_energy_price(
         self,
         area: Area | str,
-        process_type: Literal["A16", "A60", "A61", "A68", None] = None,
-        business_type: Literal["A95", "A96", "A97", "A98", None] = None,
+        process_type: Literal["A16", "A60", "A61", "A68"] | None = None,
+        business_type: Literal["A95", "A96", "A97", "A98"] | None = None,
         *,
         start: datetime | str,
         end: datetime | str,
-    ) -> nw.DataFrame | None:
+    ) -> pl.DataFrame | None:
         """Query activated balancing energy price.
 
         :param  Area | str area:
-        :param Literal['A16', 'A60', 'A61', 'A68', None] process_type:
+        :param Literal['A16', 'A60', 'A61', 'A68'] | None process_type:
         - A16: Realised
         - A60: Scheduled activation mFRR
         - A61: Direct activation mFRR
         - A68: Local Selection aFRR
         - None: select all
-        :param Literal['A95', 'A96', 'A97', 'A98', None] business_type:
+        :param Literal['A95', 'A96', 'A97', 'A98'] | None business_type:
         - A95: Frequency containment reserve
         - A96: Automatic frequency restoration reserve
         - A97: Manual frequency restoration reserve
@@ -142,7 +138,7 @@ class EntsoeClient:
         - None: select all
         :param datetime | str start: start of the query
         :param datetime | str end: end of the query
-        :return nw.DataFrame | None:
+        :return pl.DataFrame | None:
         """
         domain_code, start_str, end_str = self._prepare_inputs(area, start, end)
         params = {
@@ -163,40 +159,33 @@ class EntsoeClient:
         )
         if data == {}:
             return None
-        df = nw.from_dict(data, ACTIVATED_BALANCING_ENERGY_PRICE_SCHEMA, backend=self.backend)
-        df = df.with_columns(
-            nw.col("flowDirection.direction").replace_strict(
-                old=FlowDirection._member_names_,
-                new=[key.value for key in FlowDirection],
-            ),
-            nw.col("businessType").replace_strict(
-                old=BusinessType._member_names_,
-                new=[key.value for key in BusinessType],
-            ),
+        df = pl.from_dict(data, schema=ACTIVATED_BALANCING_ENERGY_PRICE_SCHEMA)
+        return df.with_columns(
+            pl.col("flowDirection.direction").replace_strict({member.name: member.value for member in FlowDirection}),
+            pl.col("businessType").replace_strict({member.name: member.value for member in BusinessType}),
         )
-        return df
 
     @parse_inputs
     @split_query("1y")
     async def query_activated_balancing_energy_volume(
         self,
         area: Area | str,
-        process_type: Literal["A16", "A60", "A61", "A68", None] = None,
-        business_type: Literal["A95", "A96", "A97", "A98", None] = None,
+        process_type: Literal["A16", "A60", "A61", "A68"] | None = None,
+        business_type: Literal["A95", "A96", "A97", "A98"] | None = None,
         *,
         start: datetime | str,
         end: datetime | str,
-    ) -> nw.DataFrame | None:
+    ) -> pl.DataFrame | None:
         """Query activated balancing energy volume.
 
         :param  Area | str area:
-        :param Literal['A16', 'A60', 'A61', 'A68', None] process_type:
+        :param Literal['A16', 'A60', 'A61', 'A68'] | None process_type:
         - A16: Realised
         - A60: Scheduled activation mFRR
         - A61: Direct activation mFRR
         - A68: Local Selection aFRR
         - None: select all
-        :param Literal['A95', 'A96', 'A97', 'A98', None] business_type:
+        :param Literal['A95', 'A96', 'A97', 'A98'] | None business_type:
         - A95: Frequency containment reserve
         - A96: Automatic frequency restoration reserve
         - A97: Manual frequency restoration reserve
@@ -204,7 +193,7 @@ class EntsoeClient:
         - None: select all
         :param datetime | str start: start of the query
         :param datetime | str end: end of the query
-        :return nw.DataFrame | None:
+        :return pl.DataFrame | None:
         """
         domain_code, start_str, end_str = self._prepare_inputs(area, start, end)
         params = {
@@ -225,18 +214,11 @@ class EntsoeClient:
         )
         if data == {}:
             return None
-        df = nw.from_dict(data, ACTIVATED_BALANCING_ENERGY_VOLUME_SCHEMA, backend=self.backend)
-        df = df.with_columns(
-            nw.col("flowDirection.direction").replace_strict(
-                old=FlowDirection._member_names_,
-                new=[key.value for key in FlowDirection],
-            ),
-            nw.col("businessType").replace_strict(
-                old=BusinessType._member_names_,
-                new=[key.value for key in BusinessType],
-            ),
+        df = pl.from_dict(data, schema=ACTIVATED_BALANCING_ENERGY_VOLUME_SCHEMA)
+        return df.with_columns(
+            pl.col("flowDirection.direction").replace_strict({member.name: member.value for member in FlowDirection}),
+            pl.col("businessType").replace_strict({member.name: member.value for member in BusinessType}),
         )
-        return df
 
     @parse_inputs
     @split_query("1d")
@@ -247,14 +229,14 @@ class EntsoeClient:
         *,
         start: datetime | str,
         end: datetime | str,
-    ) -> nw.DataFrame | None:
+    ) -> pl.DataFrame | None:
         """Query actual generation per production type.
 
         :param Area | str area: The area to query data for.
         :param PsrType | str | None psr_type: The type of production unit, defaults to None.
         :param datetime | str start: The start time of the query.
         :param datetime | str end: The end time of the query.
-        :return nw.DataFrame | None: DataFrame with the following columns:
+        :return pl.DataFrame | None: DataFrame with the following columns:
         - timestamp: in UTC
         - quantity: generation in MW
         - psrType: type of production unit
@@ -277,14 +259,8 @@ class EntsoeClient:
         )
         if data == {}:
             return None
-        df = nw.from_dict(data, ACTUAL_GENERATION_PER_PRODUCTION_TYPE, backend=self.backend)
-        df = df.with_columns(
-            nw.col("psrType").replace_strict(
-                old=PsrType._member_names_,
-                new=[key.value for key in PsrType],
-            )
-        )
-        return df
+        df = pl.from_dict(data, schema=ACTUAL_GENERATION_PER_PRODUCTION_TYPE)
+        return df.with_columns(pl.col("psrType").replace_strict({member.name: member.value for member in PsrType}))
 
     @parse_inputs
     @split_query("1d")
@@ -295,14 +271,14 @@ class EntsoeClient:
         *,
         start: datetime | str,
         end: datetime | str,
-    ) -> nw.DataFrame | None:
+    ) -> pl.DataFrame | None:
         """Query actual generation per generation unit.
 
         :param Area | str area: The area to query data for.
         :param PsrType | str | None psr_type: The type of production unit, defaults to None.
         :param datetime | str start: The start time of the query.
         :param datetime | str end: The end time of the query.
-        :return nw.DataFrame | None: DataFrame with the following columns:
+        :return pl.DataFrame | None: DataFrame with the following columns:
         - timestamp: in UTC
         - quantity: generation in MW
         - psrType: type of production unit
@@ -326,14 +302,8 @@ class EntsoeClient:
         )
         if data == {}:
             return None
-        df = nw.from_dict(data, ACTUAL_GENERATION_PER_GENERATION_UNIT, backend=self.backend)
-        df = df.with_columns(
-            nw.col("psrType").replace_strict(
-                old=PsrType._member_names_,
-                new=[key.value for key in PsrType],
-            )
-        )
-        return df
+        df = pl.from_dict(data, schema=ACTUAL_GENERATION_PER_GENERATION_UNIT)
+        return df.with_columns(pl.col("psrType").replace_strict({member.name: member.value for member in PsrType}))
 
     @parse_inputs
     @split_query("1y")
@@ -344,14 +314,14 @@ class EntsoeClient:
         *,
         start: datetime | str,
         end: datetime | str,
-    ) -> nw.DataFrame | None:
+    ) -> pl.DataFrame | None:
         """Query installed capacity per production type.
 
         :param Area | str area: The area to query data for.
         :param PsrType | str | None psr_type: The type of production unit, defaults to None.
         :param datetime | str start: The start time of the query.
         :param datetime | str end: The end time of the query.
-        :return nw.DataFrame | None: DataFrame with the following columns:
+        :return pl.DataFrame | None: DataFrame with the following columns:
         - timestamp: in UTC
         - quantity: installed capacity in MW
         - psrType: type of production unit
@@ -374,14 +344,8 @@ class EntsoeClient:
         )
         if data == {}:
             return None
-        df = nw.from_dict(data, INSTALLED_CAPACITY_PER_PRODUCTION_TYPE, backend=self.backend)
-        df = df.with_columns(
-            nw.col("psrType").replace_strict(
-                old=PsrType._member_names_,
-                new=[key.value for key in PsrType],
-            )
-        )
-        return df
+        df = pl.from_dict(data, schema=INSTALLED_CAPACITY_PER_PRODUCTION_TYPE)
+        return df.with_columns(pl.col("psrType").replace_strict({member.name: member.value for member in PsrType}))
 
     @parse_inputs
     @split_query("1y")
@@ -393,14 +357,14 @@ class EntsoeClient:
         start: datetime | str,
         end: datetime | str,
         offset: int = 0,
-    ) -> nw.DataFrame | None:
+    ) -> pl.DataFrame | None:
         """Query installed capacity per production unit.
 
         :param Area | str area: The area to query data for.
         :param PsrType | str | None psr_type: The type of production unit, defaults to None.
         :param datetime | str start: The start time of the query.
         :param datetime | str end: The end time of the query.
-        :return nw.DataFrame | None: DataFrame with the following columns:
+        :return pl.DataFrame | None: DataFrame with the following columns:
         - timestamp: in UTC
         - quantity: installed capacity in MW
         - psrType: type of production unit
@@ -425,11 +389,5 @@ class EntsoeClient:
         )
         if data == {}:
             return None
-        df = nw.from_dict(data, INSTALLED_CAPACITY_PER_PRODUCTION_UNIT, backend=self.backend)
-        df = df.with_columns(
-            nw.col("psrType").replace_strict(
-                old=PsrType._member_names_,
-                new=[key.value for key in PsrType],
-            )
-        )
-        return df
+        df = pl.from_dict(data, schema=INSTALLED_CAPACITY_PER_PRODUCTION_UNIT)
+        return df.with_columns(pl.col("psrType").replace_strict({member.name: member.value for member in PsrType}))

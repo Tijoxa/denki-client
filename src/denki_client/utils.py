@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import wraps
 from typing import Literal
 
-import narwhals as nw
+import polars as pl
 from dateutil.relativedelta import relativedelta
 
 from denki_client.area import Area, lookup_area
@@ -40,18 +40,14 @@ def paginated(func):
     @wraps(func)
     async def pagination_wrapper(*args, start: datetime, end: datetime, **kwargs):
         try:
-            frame: nw.DataFrame | None = await func(*args, start=start, end=end, **kwargs)
+            return await func(*args, start=start, end=end, **kwargs)
 
         except PaginationError:
             pivot = start + (end - start) / 2
-            frame1: nw.DataFrame | None = await pagination_wrapper(*args, start=start, end=pivot, **kwargs)
-            frame2: nw.DataFrame | None = await pagination_wrapper(*args, start=pivot, end=end, **kwargs)
-
-            if frame1 is None and frame2 is None:
-                frame = None
-            else:
-                frame = nw.concat([frame1, frame2], how="diagonal")
-        return frame
+            left = await pagination_wrapper(*args, start=start, end=pivot, **kwargs)
+            right = await pagination_wrapper(*args, start=pivot, end=end, **kwargs)
+            frames = [frame for frame in (left, right) if frame is not None]
+            return pl.concat(frames, how="diagonal") if frames else None
 
     return pagination_wrapper
 
@@ -66,10 +62,10 @@ def documents_limited(n: int = 100):
     def decorator(func):
         @wraps(func)
         async def documents_wrapper(*args, **kwargs):
-            frames = []
+            frames: list[pl.DataFrame] = []
             for _offset in range(0, 4800 + n, n):
                 try:
-                    frame: nw.DataFrame | None = await func(*args, offset=_offset, **kwargs)
+                    frame = await func(*args, offset=_offset, **kwargs)
                     if frame is not None:
                         frames.append(frame)
 
@@ -77,11 +73,11 @@ def documents_limited(n: int = 100):
                     logger.debug(f"NoMatchingDataError: for offset {_offset}")
                     break
 
-            if frames == []:
+            if not frames:
                 logger.debug("All the data returned are void")
+                return None
 
-            df = nw.concat(frames, how="diagonal")
-            return df
+            return pl.concat(frames, how="diagonal")
 
         return documents_wrapper
 
@@ -117,22 +113,21 @@ def split_query(freq: relativedelta | str):
         @wraps(func)
         async def wrapper(*args, start: datetime, end: datetime, **kwargs):
             blocks = yield_date_range(start, end, freq)
-            frames = []
+            frames: list[pl.DataFrame] = []
             for _start, _end in blocks:
                 try:
-                    frame: nw.DataFrame | None = await func(*args, start=_start, end=_end, **kwargs)
+                    frame = await func(*args, start=_start, end=_end, **kwargs)
                     if frame is not None:
                         frames.append(frame)
 
                 except NoMatchingDataError:
                     logger.debug(f"NoMatchingDataError: between {_start} and {_end}")
 
-            if frames == []:
+            if not frames:
                 logger.debug("All the data returned are void")
                 return None
 
-            df = nw.concat(frames, how="diagonal")
-            return df
+            return pl.concat(frames, how="diagonal")
 
         return wrapper
 

@@ -1,0 +1,101 @@
+name: Release Python wheels
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-python-wheels
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - id: plan
+        run: python .github/scripts/release_wheels.py plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            manylinux: "2_28"
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            manylinux: "off"
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            manylinux: "off"
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            manylinux: "off"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false
+      - name: Build the wheel
+        uses: PyO3/maturin-action@v1.51.0
+        with:
+          maturin-version: v1.16.0
+          rust-toolchain: stable
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --locked -i python3.12 --out dist
+      - name: Test the installed wheel
+        shell: bash
+        run: |
+          uv pip install --system dist/*.whl pytest pytest-asyncio
+          python -m pytest -m 'not live'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+      - name: Publish the GitHub Release
+        run: python .github/scripts/release_wheels.py publish
+        env:
+          GH_TOKEN: ${{ github.token }}

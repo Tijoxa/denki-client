@@ -1,6 +1,6 @@
 import re
 
-import httpx
+import httpx2
 
 
 class PaginationError(Exception):
@@ -31,19 +31,19 @@ class ParseError(Exception):
     pass
 
 
-def raise_response_error(response: httpx.Response):
+def raise_response_error(response: httpx2.Response):
     """Raises correct error from Entsoe server response.
 
-    :param httpx.Response response:
+    :param httpx2.Response response:
     :raises NoMatchingDataError:
     :raises InvalidBusinessParameterError:
     :raises InvalidPSRTypeError:
     :raises PaginationError:
-    :return httpx.Response:
+    :return httpx2.Response:
     """
     try:
         response.raise_for_status()
-    except httpx.HTTPError as e:
+    except httpx2.HTTPError as e:
         error_text = ""
         text_match = re.search(r"<text>(.*?)</text>", response.text, re.DOTALL)
         if text_match:
