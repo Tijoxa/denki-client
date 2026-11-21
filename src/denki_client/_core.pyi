@@ -1,11 +1,10 @@
-def parse_timeseries_generic(
-    xml_text: str, labels: list[str], metadata: list[str], period_name: str
-) -> dict[str, list[str]]:
-    """Parses XML-formatted string to a Python dictionnary.
+from datetime import datetime
+from typing import Any
 
-    :param str xml_text: XML-formatted string
-    :param list[str] labels: list of XML tags to retreive inside a `period_name` tag
-    :param list[str] metadata: list of XML tags to retreive between a `TimeSeries` and a `period_name` tag
-    :param str period_name: usually 'period'
-    :return dict[str, list[str]]:
-    """
+def parse_timeseries_generic(
+    xml_text: str | bytes, labels: list[str], metadata: list[str], period_name: str
+) -> dict[str, list[str | int | float | datetime | None]]:
+    """Project the requested point measurements and series metadata into aligned columns."""
+
+def parse_xml(xml_bytes: bytes) -> dict[str, Any]:
+    """Parse XML bytes into a nested tree preserving names, namespaces, attributes, text, and order."""

@@ -31,6 +31,14 @@ class ParseError(Exception):
     pass
 
 
+class EntsoeResponseError(Exception):
+    """A business failure reported in an ENTSO-E acknowledgement."""
+
+    def __init__(self, status_code: int, message: str) -> None:
+        self.status_code = status_code
+        super().__init__(message)
+
+
 def raise_response_error(response: httpx2.Response):
     """Raises correct error from Entsoe server response.
 
@@ -43,7 +51,7 @@ def raise_response_error(response: httpx2.Response):
     """
     try:
         response.raise_for_status()
-    except httpx2.HTTPError as e:
+    except httpx2.HTTPError:
         error_text = ""
         text_match = re.search(r"<text>(.*?)</text>", response.text, re.DOTALL)
         if text_match:
@@ -76,12 +84,11 @@ def raise_response_error(response: httpx2.Response):
                 raise PaginationError(
                     f"The API is limited to {allowed} elements per request. This query requested {requested} documents."
                 )
-        raise e
+        raise
     # ENTSO-e has changed their server to also respond with 200 if there is no data but all parameters are valid
     # this means we need to check the contents for this error even when status code 200 is returned
     # to prevent parsing the full response do a text matching instead of full parsing
     # also only do this when response type content is text and not for example a zip file.
-    if response.headers.get("content-type", "") == "application/xml":
-        if "No matching data found" in response.text:
-            raise NoMatchingDataError
+    if response.headers.get("content-type", "") == "application/xml" and "No matching data found" in response.text:
+        raise NoMatchingDataError
     return response

@@ -367,6 +367,8 @@ class ProcessType(enum.Enum):
 
 
 class Neighbours(enum.Enum):
+    # Keep list values for callers that use Neighbours.value directly.
+    # ruff: disable[RUF012]
     BE = ["NL", "DE_AT_LU", "FR", "GB", "DE_LU"]
     NL = ["BE", "DE_AT_LU", "DE_LU", "GB", "NO_2", "DK_1"]
     DE_AT_LU = ["BE", "CH", "CZ", "DK_1", "DK_2", "FR", "IT_NORD", "IT_NORD_AT", "NL", "PL", "SE_4", "SI"]
@@ -415,10 +417,11 @@ class Neighbours(enum.Enum):
     IT_CNOR = ["IT_NORD", "IT_CSUD", "IT_SARD"]
     IT_SARD = ["IT_CNOR", "IT_CSUD"]
     IT_SICI = ["IT_CALA", "IT_ROSN", "MT"]
-    IT_CALA = ["IT_SICI", "IT_SUD"]
+    IT_CALA = IT_ROSN
     MT = ["IT_SICI"]
     HR = ["BA", "HU", "RS", "SI"]
     IE = ["GB", "NIE"]
     NIE = ["GB", "IE"]
     GB_NIR = NIE
     MD = ["UA", "RO"]
+    # ruff: enable[RUF012]
