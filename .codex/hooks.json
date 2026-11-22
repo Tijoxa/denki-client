@@ -6,7 +6,7 @@
           {
             "type": "command",
             "command": "uv run --no-project --script \"$(git rev-parse --show-toplevel)/.codex/hooks/check.py\"",
-            "statusMessage": "Running denki-client checks"
+            "statusMessage": "Checking denki-client formatting"
           }
         ]
       }
