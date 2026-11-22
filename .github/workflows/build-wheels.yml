@@ -46,7 +46,7 @@ jobs:
       - name: Test the installed wheel
         shell: bash
         run: |
-          uv pip install --system dist/*.whl pytest pytest-asyncio
+          uv pip install --system dist/*.whl pytest pytest-asyncio 'hishel[httpx2]>=2.0.0'
           python -m pytest -m 'not live'
       - uses: actions/upload-artifact@v7
         with:
